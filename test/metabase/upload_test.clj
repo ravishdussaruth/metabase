@@ -13,8 +13,7 @@
    [metabase.driver.sql-jdbc.connection :as sql-jdbc.conn]
    [metabase.driver.util :as driver.u]
    [metabase.models :refer [Field]]
-   [metabase.models.interface :as mi]
-   [metabase.models.permissions :as perms]
+   [metabase.models.data-permissions :as data-perms]
    [metabase.models.permissions-group :as perms-group]
    [metabase.query-processor :as qp]
    [metabase.sync.sync-metadata.tables :as sync-tables]
@@ -446,30 +445,28 @@
       :as args}]
   (mt/with-temporary-setting-values [uploads-enabled uploads-enabled]
     (mt/with-current-user user-id
-      (let [db                (t2/select-one :model/Database db-id)
-            schema-name       (if (contains? args :schema-name)
-                                (:schema-name args)
-                                (sql.tx/session-schema driver/*driver*))
-            file              (csv-file-with
-                               ["id, name"
-                                "1, Luke Skywalker"
-                                "2, Darth Vader"]
-                               csv-file-prefix)
-            group-id          (u/the-id (perms-group/all-users))
-            grant?            (and db
-                                   (not (mi/can-read? db))
-                                   grant-permission?)]
-        (when grant?
-          (perms/grant-permissions! group-id (perms/data-perms-path db-id)))
-        (u/prog1 (binding [upload/*sync-synchronously?* sync-synchronously?]
-                   (upload/create-csv-upload! {:collection-id collection-id
-                                               :filename      csv-file-prefix
-                                               :file          file
-                                               :db-id         db-id
-                                               :schema-name   schema-name
-                                               :table-prefix  table-prefix}))
+      (mt/with-restored-data-perms!
+        (let [db                (t2/select-one :model/Database db-id)
+              schema-name       (if (contains? args :schema-name)
+                                  (:schema-name args)
+                                  (sql.tx/session-schema driver/*driver*))
+              file              (csv-file-with
+                                 ["id, name"
+                                  "1, Luke Skywalker"
+                                  "2, Darth Vader"]
+                                 csv-file-prefix)
+              group-id          (u/the-id (perms-group/all-users))
+              grant?            (and db grant-permission?)]
           (when grant?
-            (perms/revoke-data-perms! group-id db-id)))))))
+            (data-perms/set-database-permission! group-id db-id :perms/view-data :unrestricted)
+            (data-perms/set-database-permission! group-id db-id :perms/create-queries :query-builder))
+          (u/prog1 (binding [upload/*sync-synchronously?* sync-synchronously?]
+                     (upload/create-csv-upload! {:collection-id collection-id
+                                                 :filename      csv-file-prefix
+                                                 :file          file
+                                                 :db-id         db-id
+                                                 :schema-name   schema-name
+                                                 :table-prefix  table-prefix}))))))))
 
 (defn do-with-uploads-allowed
   "Set uploads-enabled to true, and uses an admin user, run the thunk"
