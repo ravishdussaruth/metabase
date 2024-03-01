@@ -628,3 +628,10 @@ export const ApiKeysApi = {
   edit: PUT("/api/api-key/:id"),
   regenerate: PUT("/api/api-key/:id/regenerate"),
 };
+
+// TODO: move to plugin
+export const CacheConfigApi = {
+  list: GET("/api/ee/caching"),
+  update: PUT("/api/ee/caching"),
+  delete: DELETE("/api/caching/:id"),
+};
