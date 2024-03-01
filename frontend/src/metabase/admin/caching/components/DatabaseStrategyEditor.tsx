@@ -22,6 +22,7 @@ import { isValidStrategy, Strategies } from "../types";
 
 import {
   ClearOverridesButton,
+  ConfigDisplay,
   ConfigPanel,
   ConfigPanelSection,
   DatabaseConfigDisplayStyled,
@@ -29,7 +30,6 @@ import {
   Editor,
   EditorPanel,
   Explanation,
-  RootConfigDisplay,
   StrategyDisplay,
   TabWrapper,
 } from "./DatabaseStrategyEditor.styled";
@@ -50,7 +50,7 @@ export const DatabaseStrategyEditor = ({
   clearDBOverrides: () => void;
 }) => {
   /** Id of the database currently being edited */
-  const [targetId, setTargetId] = useState<number | null>(null);
+  const [currentId, setCurrentId] = useState<number | null>(null);
   const [editingRootConfig, setEditingRootConfig] = useState<boolean>(false);
 
   const rootStrategyLabel = rootStrategy
@@ -58,9 +58,11 @@ export const DatabaseStrategyEditor = ({
     : null;
   const currentStrategy = editingRootConfig
     ? rootStrategy
-    : targetId === null
+    : currentId === null
     ? null
-    : dbConfigs.get(targetId)?.strategy;
+    : dbConfigs.get(currentId)?.strategy;
+
+  const currentDatabase = databases.find(db => db.id === currentId);
 
   const initialTTLDefaults = new Map(
     databases.map(db => [
@@ -76,13 +78,13 @@ export const DatabaseStrategyEditor = ({
   // const [defaultsForQueryStrategy, setDefaultsForQueryStrategy] = useState({ field_id: 0, aggregation: "", schedule: "" });
 
   useEffect(() => {
-    if (targetId === null) {
+    if (currentId === null) {
       return;
     }
     if (currentStrategy?.type === "ttl") {
       setTTLDefaults((defaults: Map<number, Partial<TTLStrategy>>) => {
-        // Update defaults with values in newStrategy
-        const prevDefaults = defaults.get(targetId);
+        // Update defaults with values in the current strategy
+        const prevDefaults = defaults.get(currentId);
         const newDefaults = _.pick(
           currentStrategy,
           "min_duration",
@@ -92,11 +94,11 @@ export const DatabaseStrategyEditor = ({
           ...prevDefaults,
           ...newDefaults,
         };
-        defaults.set(targetId, merged);
+        defaults.set(currentId, merged);
         return defaults;
       });
     }
-  }, [currentStrategy, targetId, setTTLDefaults]);
+  }, [currentStrategy, currentId, setTTLDefaults]);
 
   const updateDatabaseStrategy = (
     newStrategyValues: Record<string, string | number>,
@@ -104,8 +106,8 @@ export const DatabaseStrategyEditor = ({
     const type = newStrategyValues?.type ?? currentStrategy?.type;
     let newStrategy = {};
     if (type === "ttl") {
-      const defaultsForTTLStrategyForThisDB = targetId
-        ? ttlDefaults.get(targetId)
+      const defaultsForTTLStrategyForThisDB = currentId
+        ? ttlDefaults.get(currentId)
         : null;
       newStrategy = {
         ...defaultsForTTLStrategyForThisDB,
@@ -121,14 +123,14 @@ export const DatabaseStrategyEditor = ({
     }
     if (editingRootConfig) {
       setRootStrategy(newStrategy);
-    } else if (targetId !== null) {
-      setDBStrategy(targetId, newStrategy);
+    } else if (currentId !== null) {
+      setDBStrategy(currentId, newStrategy);
     } else {
       console.error("No target specified");
     }
   };
 
-  const showEditor = editingRootConfig || targetId !== null;
+  const showEditor = editingRootConfig || currentId !== null;
 
   return (
     <TabWrapper role="region" aria-label="Data caching settings">
@@ -140,13 +142,13 @@ export const DatabaseStrategyEditor = ({
           role="group"
           style={{ backgroundColor: color("bg-light") }}
         >
-          <RootConfigDisplay
+          <ConfigDisplay
             {...getButtonProps({
               shouldHighlightButton: editingRootConfig,
             })}
             onClick={() => {
               setEditingRootConfig(true);
-              setTargetId(null);
+              setCurrentId(null);
             }}
           >
             <DatabasesConfigIcon name="database" />
@@ -158,7 +160,7 @@ export const DatabaseStrategyEditor = ({
             >
               {rootStrategyLabel}
             </StrategyDisplay>
-          </RootConfigDisplay>
+          </ConfigDisplay>
         </EditorPanel>
         <EditorPanel role="group">
           {databases.map(db => (
@@ -167,10 +169,10 @@ export const DatabaseStrategyEditor = ({
               key={db.id.toString()}
               dbConfigs={dbConfigs}
               setDBStrategy={setDBStrategy}
-              targetDatabaseId={targetId}
+              targetDatabaseId={currentId}
               setEditingWhichDatabaseId={databaseId => {
                 setEditingRootConfig(false);
-                setTargetId(databaseId);
+                setCurrentId(databaseId);
               }}
               rootStrategy={rootStrategy}
             />
@@ -186,11 +188,11 @@ export const DatabaseStrategyEditor = ({
             <>
               <ConfigPanelSection>
                 <Title order={2} mb="1rem">
-                  Database {targetId}
+                  {currentDatabase?.name.trim() || "Untitled database"}
                 </Title>
                 <Radio.Group
                   value={currentStrategy?.type ?? rootStrategy?.type}
-                  name={`caching-strategy-for-database-${targetId}`}
+                  name={`caching-strategy-for-database-${currentId}`}
                   onChange={strategyType => {
                     updateDatabaseStrategy({ type: strategyType });
                   }}
@@ -269,12 +271,10 @@ export const DatabaseConfigDisplay = ({
   const dbConfig = dbConfigs.get(db.id);
   const savedDBStrategy = dbConfig?.strategy;
   const overridesRoot =
-    savedDBStrategy !== undefined &&
-    savedDBStrategy.type !== rootStrategy?.type;
-  // TODO: When other kinds of strategies are added we will need a deeper check.
+    savedDBStrategy !== undefined && !_.isEqual(savedDBStrategy, rootStrategy);
   const strategyForDB = savedDBStrategy ?? rootStrategy;
   if (!strategyForDB) {
-    throw new Error(t`Invalid strategy "${strategyForDB}"`);
+    throw new Error(t`Invalid strategy "${JSON.stringify(strategyForDB)}"`);
   }
   const strategyLabel = Strategies[strategyForDB.type]?.label;
   const isBeingEdited = targetDatabaseId === db.id;
