@@ -34,7 +34,7 @@ export type UnitOfTime = "hours" | "minutes" | "seconds" | "days";
 const isValidUnitOfTime = (x: unknown): x is UnitOfTime =>
   typeof x === "string" && ["hours", "minutes", "seconds", "days"].includes(x);
 
-export type GetConfigByModelId = Map<number, Config>;
+export type GetConfigByModelId = Map<number | "root" | null, Config>;
 
 export type Model =
   | "root"
@@ -46,12 +46,6 @@ export type Model =
 const isValidModel = (x: unknown): x is Model =>
   typeof x === "string" &&
   ["root", "database", "collection", "dashboard", "question"].includes(x);
-
-type NoExtraProperties<T> = {
-  [P in keyof T]: T[P];
-} & {
-  [P: string]: never;
-};
 
 interface StrategyBase {
   type: StrategyName;
@@ -85,15 +79,13 @@ export interface QueryStrategy extends StrategyBase {
   schedule: string;
 }
 
-type ExtendableStrategy =
+/** Cache invalidation strategy */
+export type Strategy =
   | DoNotCacheStrategy
   | TTLStrategy
   | DurationStrategy
   | ScheduleStrategy
   | QueryStrategy;
-
-/** Cache invalidation strategy */
-export type Strategy = NoExtraProperties<ExtendableStrategy>;
 
 /** Cache invalidation configuration */
 export interface Config {

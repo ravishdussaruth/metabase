@@ -70,15 +70,8 @@ export const StrategyDisplay = styled(CacheAdminButton)`
 export const DatabaseConfigDisplayStyled = styled(
   CacheAdminButton,
 )<ButtonProps>`
-  width: 100%;
-  display: flex;
-  font-weight: bold;
-  flex-flow: row nowrap;
-  margin-bottom: 1rem;
-  align-items: center;
   // TODO: These shrink vertically when there are too many in the panel
-  padding: 1rem;
-  min-width: 20rem;
+  // TODO: just use a style prop for this since it's just one thing
   border: 1px solid ${color("border")};
 `;
 

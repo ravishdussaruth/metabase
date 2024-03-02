@@ -1,7 +1,6 @@
 import type { Dispatch, MouseEvent, SetStateAction } from "react";
 import { useEffect, useState } from "react";
 import { t } from "ttag";
-import _ from "underscore";
 import * as Yup from "yup";
 
 import { Form, FormProvider, FormTextInput } from "metabase/forms";
@@ -11,11 +10,9 @@ import { Icon, Radio, Text, Title } from "metabase/ui";
 import type Database from "metabase-lib/metadata/Database";
 
 import type {
-  Config,
   DBStrategySetter,
   GetConfigByModelId,
   RootStrategySetter,
-  Strategy,
   TTLStrategy,
 } from "../types";
 import { isValidStrategy, Strategies } from "../types";
@@ -36,45 +33,39 @@ import {
 
 export const DatabaseStrategyEditor = ({
   databases,
-  rootStrategy,
   dbConfigs,
   setRootStrategy,
   setDBStrategy,
   clearDBOverrides,
 }: {
-  rootStrategy: Strategy;
   databases: Database[];
   dbConfigs: GetConfigByModelId;
   setDBStrategy: DBStrategySetter;
   setRootStrategy: RootStrategySetter;
   clearDBOverrides: () => void;
 }) => {
-  /** Id of the database currently being edited */
-  const [currentId, setCurrentId] = useState<number | null>(null);
-  const [editingRootConfig, setEditingRootConfig] = useState<boolean>(false);
-
+  /** Id of the database currently being edited, or 'root' for the root strategy */
+  const [currentId, setCurrentId] = useState<number | "root" | null>(null);
+  const rootStrategy = dbConfigs.get("root")?.strategy;
   const rootStrategyLabel = rootStrategy
     ? Strategies[rootStrategy?.type]?.label
     : null;
-  const currentStrategy = editingRootConfig
-    ? rootStrategy
-    : currentId === null
-    ? null
-    : dbConfigs.get(currentId)?.strategy;
-
+  const currentStrategy = dbConfigs.get(currentId)?.strategy;
   const currentDatabase = databases.find(db => db.id === currentId);
 
-  const initialTTLDefaults = new Map(
-    databases.map(db => [
-      db.id,
-      {
-        min_duration: 1,
-        multiplier: 1,
-      },
-    ]),
-  );
-  const [ttlDefaults, setTTLDefaults] =
-    useState<Map<number, Partial<TTLStrategy>>>(initialTTLDefaults);
+  const ttlInitialDefault = {
+    min_duration: 1,
+    multiplier: 1,
+  };
+
+  const [ttlDefaults, setTTLDefaults] = useState<
+    Map<number | "root", Partial<TTLStrategy>>
+  >(() => new Map(databases.map(db => [db.id, ttlInitialDefault])));
+
+  if (!ttlDefaults.has("root")) {
+    ttlDefaults.set("root", ttlInitialDefault);
+  }
+
   // const [defaultsForQueryStrategy, setDefaultsForQueryStrategy] = useState({ field_id: 0, aggregation: "", schedule: "" });
 
   useEffect(() => {
@@ -82,19 +73,16 @@ export const DatabaseStrategyEditor = ({
       return;
     }
     if (currentStrategy?.type === "ttl") {
-      setTTLDefaults((defaults: Map<number, Partial<TTLStrategy>>) => {
+      setTTLDefaults((defaults: Map<number | "root", Partial<TTLStrategy>>) => {
         // Update defaults with values in the current strategy
-        const prevDefaults = defaults.get(currentId);
-        const newDefaults = _.pick(
-          currentStrategy,
-          "min_duration",
-          "multiplier",
-        );
-        const merged = {
-          ...prevDefaults,
-          ...newDefaults,
-        };
-        defaults.set(currentId, merged);
+        const defaultsForCurrentId = defaults.get(currentId) ?? {};
+        if (isValidMinDuration(currentStrategy.min_duration)) {
+          defaultsForCurrentId.min_duration = currentStrategy.min_duration;
+        }
+        if (isValidMultiplier(currentStrategy.multiplier)) {
+          defaultsForCurrentId.multiplier = currentStrategy.multiplier;
+        }
+        defaults.set(currentId, defaultsForCurrentId);
         return defaults;
       });
     }
@@ -106,11 +94,11 @@ export const DatabaseStrategyEditor = ({
     const type = newStrategyValues?.type ?? currentStrategy?.type;
     let newStrategy = {};
     if (type === "ttl") {
-      const defaultsForTTLStrategyForThisDB = currentId
+      const ttlDefaultsForCurrentId = currentId
         ? ttlDefaults.get(currentId)
         : null;
       newStrategy = {
-        ...defaultsForTTLStrategyForThisDB,
+        ...ttlDefaultsForCurrentId,
         ...newStrategyValues,
       };
     } else {
@@ -121,7 +109,7 @@ export const DatabaseStrategyEditor = ({
       console.error(`Invalid strategy: ${JSON.stringify(newStrategy)}`);
       return false;
     }
-    if (editingRootConfig) {
+    if (currentId === "root") {
       setRootStrategy(newStrategy);
     } else if (currentId !== null) {
       setDBStrategy(currentId, newStrategy);
@@ -130,7 +118,7 @@ export const DatabaseStrategyEditor = ({
     }
   };
 
-  const showEditor = editingRootConfig || currentId !== null;
+  const showEditor = currentId !== null;
 
   return (
     <TabWrapper role="region" aria-label="Data caching settings">
@@ -144,18 +132,17 @@ export const DatabaseStrategyEditor = ({
         >
           <ConfigDisplay
             {...getButtonProps({
-              shouldHighlightButton: editingRootConfig,
+              shouldHighlightButton: currentId === "root",
             })}
             onClick={() => {
-              setEditingRootConfig(true);
-              setCurrentId(null);
+              setCurrentId("root");
             }}
           >
             <DatabasesConfigIcon name="database" />
             {t`Databases`}
             <StrategyDisplay
               {...getButtonProps({
-                shouldHighlightButton: !editingRootConfig,
+                shouldHighlightButton: currentId !== "root",
               })}
             >
               {rootStrategyLabel}
@@ -169,12 +156,8 @@ export const DatabaseStrategyEditor = ({
               key={db.id.toString()}
               dbConfigs={dbConfigs}
               setDBStrategy={setDBStrategy}
-              targetDatabaseId={currentId}
-              setEditingWhichDatabaseId={databaseId => {
-                setEditingRootConfig(false);
-                setCurrentId(databaseId);
-              }}
-              rootStrategy={rootStrategy}
+              currentId={currentId}
+              setCurrentId={setCurrentId}
             />
           ))}
           <ClearOverridesButton
@@ -188,7 +171,9 @@ export const DatabaseStrategyEditor = ({
             <>
               <ConfigPanelSection>
                 <Title order={2} mb="1rem">
-                  {currentDatabase?.name.trim() || "Untitled database"}
+                  {currentId === "root"
+                    ? "Default for all databases"
+                    : currentDatabase?.name.trim() || "Untitled database"}
                 </Title>
                 <Radio.Group
                   value={currentStrategy?.type ?? rootStrategy?.type}
@@ -255,40 +240,43 @@ export const DatabaseConfigDisplay = ({
   db,
   key,
   dbConfigs,
+  currentId,
+  setCurrentId,
   setDBStrategy,
-  targetDatabaseId,
-  setEditingWhichDatabaseId,
-  rootStrategy,
 }: {
   db: Database;
   key: string;
-  targetDatabaseId: number | null;
-  setEditingWhichDatabaseId: Dispatch<SetStateAction<number | null>>;
-  dbConfigs: Map<number, Config>;
+  currentId: number | "root" | null;
+  dbConfigs: GetConfigByModelId;
+  setCurrentId: Dispatch<SetStateAction<number | "root" | null>>;
   setDBStrategy: DBStrategySetter;
-  rootStrategy: Strategy | undefined;
 }) => {
   const dbConfig = dbConfigs.get(db.id);
+  const rootStrategy = dbConfigs.get("root")?.strategy;
   const savedDBStrategy = dbConfig?.strategy;
-  const overridesRoot =
-    savedDBStrategy !== undefined && !_.isEqual(savedDBStrategy, rootStrategy);
+  const overridesRoot = savedDBStrategy !== undefined;
   const strategyForDB = savedDBStrategy ?? rootStrategy;
   if (!strategyForDB) {
     throw new Error(t`Invalid strategy "${JSON.stringify(strategyForDB)}"`);
   }
   const strategyLabel = Strategies[strategyForDB.type]?.label;
-  const isBeingEdited = targetDatabaseId === db.id;
+  const isBeingEdited = currentId === db.id;
   const clearOverride = () => {
     setDBStrategy(db.id, null);
   };
   const shouldHighlightButton = overridesRoot && !isBeingEdited;
   return (
     <DatabaseConfigDisplayStyled
-      {...getButtonProps({ shouldHighlightButton: isBeingEdited })}
       key={key}
       onClick={() => {
-        setEditingWhichDatabaseId(db.id);
+        setCurrentId(db.id);
       }}
+      w="100%"
+      fw="bold"
+      mb="1rem"
+      p="1rem"
+      miw="20rem"
+      {...getButtonProps({ shouldHighlightButton: isBeingEdited })}
     >
       <DatabasesConfigIcon name="database" />
       {db.name}
@@ -326,19 +314,28 @@ export const getButtonProps = ({
   };
 };
 
+const minDurationValidationSchema = Yup.number()
+  .positive(t`The minimum query duration must be a positive number.`)
+  .integer(t`The minimum query duration must be an integer.`)
+  .required(t`Required field`);
+const isValidMinDuration = (x: unknown) =>
+  minDurationValidationSchema.isValidSync(x);
+
+const multiplierValidationSchema = Yup.number()
+  .positive(t`The multiplier must be a positive number.`)
+  .integer(t`The multiplier must be an integer.`)
+  .required(t`Required field`);
+const isValidMultiplier = (x: unknown) =>
+  multiplierValidationSchema.isValidSync(x);
+
 export const ttlStrategyValidationSchema = Yup.object({
-  min_duration: Yup.number()
-    .positive(t`The minimum query duration must be a positive number.`)
-    .integer(t`The minimum query duration must be an integer.`)
-    .required(t`Required field`),
-  multiplier: Yup.number()
-    .positive(t`The multiplier must be a positive number.`)
-    .integer(t`The multiplier must be an integer.`)
-    .required(t`Required field`),
+  min_duration: minDurationValidationSchema,
+  multiplier: multiplierValidationSchema,
 });
 
 // TODO: maybe use Mantine's Stack component in conjunction with or instead of ConfigPanelSection
 
+// TODO: Use Form's onChange prop so you don't need a separate StrategyPositiveNumberInput component
 const TTLStrategyEditor = ({
   currentStrategy,
   updateStrategy,
@@ -396,7 +393,7 @@ export const StrategyPositiveNumberInput = ({
           [fieldName]: Number(e.target.value.trim() || null),
         })
       }
-      name={fieldName as string} // TODO: Remove this 'as'
+      name={fieldName}
       type="number"
       min={1}
       styles={{ input: { maxWidth: "5rem" } }}

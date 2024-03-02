@@ -29,6 +29,22 @@ import { Tab, TabContentWrapper, TabsList, TabsPanel } from "./CacheApp.styled";
 import { DatabaseStrategyEditor } from "./DatabaseStrategyEditor";
 const defaultRootStrategy: Strategy = { type: "nocache" };
 
+class Serially {
+  private queue: (() => Promise<any>)[] = [];
+  private lastPromise: Promise<any> = Promise.resolve();
+  public do = (promise: Promise<any>) => {
+    this.lastPromise = this.lastPromise
+      .then(() => promise)
+      .catch(() => promise)
+      .finally(() => {
+        this.queue.shift();
+        this.queue[0]?.();
+      });
+    this.queue.push(() => this.lastPromise);
+  };
+}
+const serially = new Serially();
+
 export const CacheApp = () => {
   const [tabId, setTabId] = useState<TabId>(TabId.DataCachingSettings);
   const [tabsHeight, setTabsHeight] = useState<number>(300);
@@ -63,6 +79,7 @@ export const CacheApp = () => {
   const [configs, setConfigs] = useState<Config[]>([]);
 
   useEffect(() => {
+    // TODO: Remove validation?
     if (configsFromAPI) {
       const validConfigs = configsFromAPI.reduce<Config[]>(
         (acc, configFromAPI: unknown) => {
@@ -83,39 +100,23 @@ export const CacheApp = () => {
     }
   }, [configsFromAPI]);
 
-  useLayoutEffect(() => {
-    const handleResize = () => {
-      const tabs = tabsRef.current;
-      if (!tabs) {
-        return;
-      }
-      const tabsElementTop = tabs.getBoundingClientRect().top;
-      const newHeight = window.innerHeight - tabsElementTop - tabs.clientTop;
-      setTabsHeight(newHeight);
-    };
-    window.addEventListener("resize", handleResize);
-    handleResize();
-    setTimeout(handleResize, 50);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [tabsRef, areDatabasesLoading, areConfigsLoading, areConfigsLoading]);
-
   const dbConfigs: GetConfigByModelId = useMemo(() => {
     const map: GetConfigByModelId = new Map();
     configs.forEach(config => {
       if (config.model === "database") {
         map.set(config.model_id, config);
+      } else if (config.model === "root") {
+        map.set("root", config);
       }
     });
+    if (!map.has("root")) {
+      map.set("root", {
+        model: "root",
+        model_id: 0,
+        strategy: defaultRootStrategy,
+      });
+    }
     return map;
-  }, [configs]);
-
-  const rootStrategy: Strategy = useMemo(() => {
-    return (
-      configs.find(config => config.model === "root")?.strategy ??
-      defaultRootStrategy
-    );
   }, [configs]);
 
   const setStrategy = useCallback<StrategySetter>(
@@ -142,12 +143,11 @@ export const CacheApp = () => {
         // TODO: What if the update fails? This might be over-engineering, but
         // maybe: always cache the previous state so we can roll back, and show
         // an error toast?
-        await CacheConfigApi.update(newConfig);
+        serially.do(CacheConfigApi.update(newConfig));
       } else {
         setConfigs(otherConfigs);
-        await CacheConfigApi.delete(baseConfig);
+        serially.do(CacheConfigApi.delete(baseConfig));
       }
-      // TODO: Re-fetch data from API at this point?
     },
     [configs],
   );
@@ -155,6 +155,24 @@ export const CacheApp = () => {
   const clearDBOverrides = useCallback(() => {
     setConfigs(configs => configs.filter(({ model }) => model !== "database"));
   }, []);
+
+  useLayoutEffect(() => {
+    const handleResize = () => {
+      const tabs = tabsRef.current;
+      if (!tabs) {
+        return;
+      }
+      const tabsElementTop = tabs.getBoundingClientRect().top;
+      const newHeight = window.innerHeight - tabsElementTop - tabs.clientTop;
+      setTabsHeight(newHeight);
+    };
+    window.addEventListener("resize", handleResize);
+    handleResize();
+    setTimeout(handleResize, 50);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [tabsRef, areDatabasesLoading, areConfigsLoading, areConfigsLoading]);
 
   if (errorWhenLoadingConfigs || areConfigsLoading) {
     return (
@@ -202,7 +220,6 @@ export const CacheApp = () => {
           <DatabaseStrategyEditor
             databases={databases}
             dbConfigs={dbConfigs}
-            rootStrategy={rootStrategy}
             setRootStrategy={strategy => setStrategy("root", 0, strategy)}
             setDBStrategy={(databaseId, strategy) =>
               setStrategy("database", databaseId, strategy)
