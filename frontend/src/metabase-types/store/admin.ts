@@ -13,7 +13,7 @@ export type AdminPathKey =
   | "troubleshooting"
   | "audit"
   | "tools"
-  | "caching";
+  | "performance";
 
 export type AdminPath = {
   key: AdminPathKey;
