@@ -254,22 +254,36 @@ export const PerformanceApp = () => {
     };
   }, [tabsRef, areDatabasesLoading, areConfigsLoading, areConfigsLoading]);
 
+  const [showLoadingSpinner, setShowLoadingSpinner] = useState(false);
+
+  useEffect(
+    /**
+     * @see https://metaboat.slack.com/archives/C02H619CJ8K/p1709558533499399
+     */
+    function delayLoadingSpinner() {
+      setTimeout(() => {
+        setShowLoadingSpinner(true);
+      }, 300);
+    },
+    [],
+  );
+
   if (errorWhenLoadingConfigs || areConfigsLoading) {
-    return (
+    return showLoadingSpinner ? (
       <LoadingAndErrorWrapper
         error={errorWhenLoadingConfigs}
         loading={areConfigsLoading}
       />
-    );
+    ) : null;
   }
 
   if (errorWhenLoadingDatabases || areDatabasesLoading) {
-    return (
+    return showLoadingSpinner ? (
       <LoadingAndErrorWrapper
         error={errorWhenLoadingDatabases}
         loading={areDatabasesLoading}
       />
-    );
+    ) : null;
   }
 
   // TODO: The horizontal row of tabs does not look so good in narrow viewports
