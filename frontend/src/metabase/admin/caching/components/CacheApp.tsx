@@ -150,6 +150,8 @@ export const CacheApp = () => {
         options.fetch ??= true;
         return requestFunction(arg, options).then(onSuccess).catch(onError);
       },
+      // TODO: Perhaps increase the debounce wait time when user is
+      // using arrow keys to change the strategy type
       200,
     ),
     [],
