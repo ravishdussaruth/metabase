@@ -22,7 +22,6 @@ import type {
   DurationStrategy,
   GetConfigByModelId,
   RootStrategySetter,
-  ScheduleStrategy,
   Strategy,
   StrategyType,
   TTLStrategy,
@@ -35,13 +34,11 @@ import {
 } from "../types";
 import {
   durationStrategyValidationSchema,
-  scheduleStrategyValidationSchema,
   ttlStrategyValidationSchema,
 } from "../validation";
 
 import {
   ConfigureSelectedStrategy,
-  CronInput,
   PositiveNumberInput,
 } from "./ConfigureSelectedStrategy";
 import {
@@ -50,6 +47,7 @@ import {
   Panel,
   TabWrapper,
 } from "./DatabaseStrategyEditor.styled";
+
 export const DatabaseStrategyEditor = ({
   databases,
   dbConfigs,
@@ -104,7 +102,7 @@ export const DatabaseStrategyEditor = ({
     [currentStrategy, currentId, setDefaults],
   );
 
-  const updateTheStrategy = (newStrategyValues: Partial<Strategy>) => {
+  const updateStrategy = (newStrategyValues: Partial<Strategy>) => {
     const strategyType: StrategyType | undefined =
       newStrategyValues?.type ?? currentStrategy?.type;
     const relevantDefaults =
@@ -131,7 +129,7 @@ export const DatabaseStrategyEditor = ({
   const showEditor = currentId !== null;
 
   const handleFormSubmit = (values: Partial<Strategy>) => {
-    updateTheStrategy({ ...currentStrategy, ...values });
+    updateStrategy({ ...currentStrategy, ...values });
   };
 
   return (
@@ -202,11 +200,11 @@ export const DatabaseStrategyEditor = ({
                 currentDatabase={currentDatabase}
                 currentStrategy={currentStrategy}
                 rootStrategy={rootStrategy}
-                updateTheStrategy={updateTheStrategy}
+                updateStrategy={updateStrategy}
               />
               {currentStrategy?.type === "ttl" && (
                 <ConfigureSelectedStrategy<TTLStrategy>
-                  updateStrategy={updateTheStrategy}
+                  updateStrategy={updateStrategy}
                   currentStrategy={currentStrategy}
                   validationSchema={ttlStrategyValidationSchema}
                 >
@@ -234,25 +232,9 @@ export const DatabaseStrategyEditor = ({
                   </section>
                 </ConfigureSelectedStrategy>
               )}
-              {currentStrategy?.type === "schedule" && (
-                <ConfigureSelectedStrategy<ScheduleStrategy>
-                  updateStrategy={updateTheStrategy}
-                  currentStrategy={currentStrategy}
-                  validationSchema={scheduleStrategyValidationSchema}
-                >
-                  <section>
-                    <Title order={3}>{t`Schedule`}</Title>
-                    <p>{t`(explanation goes here)`}</p>
-                    <CronInput
-                      initialValue={currentStrategy.schedule}
-                      handleSubmit={handleFormSubmit}
-                    />
-                  </section>
-                </ConfigureSelectedStrategy>
-              )}
               {currentStrategy?.type === "duration" && (
                 <ConfigureSelectedStrategy<DurationStrategy>
-                  updateStrategy={updateTheStrategy}
+                  updateStrategy={updateStrategy}
                   currentStrategy={currentStrategy}
                   validationSchema={durationStrategyValidationSchema}
                 >
@@ -266,6 +248,24 @@ export const DatabaseStrategyEditor = ({
                   </section>
                 </ConfigureSelectedStrategy>
               )}
+              {/*
+              {currentStrategy?.type === "schedule" && (
+                <ConfigureSelectedStrategy<ScheduleStrategy>
+                  updateStrategy={updateStrategy}
+                  currentStrategy={currentStrategy}
+                  validationSchema={scheduleStrategyValidationSchema}
+                >
+                  <section>
+                    <Title order={3}>{t`Schedule`}</Title>
+                    <p>{t`(explanation goes here)`}</p>
+                    <CronInput
+                      initialValue={currentStrategy.schedule}
+                      handleSubmit={handleFormSubmit}
+                    />
+                  </section>
+                </ConfigureSelectedStrategy>
+              )}
+                */}
             </Stack>
           )}
           {/*
@@ -364,15 +364,13 @@ const PickAStrategy = ({
   currentDatabase,
   currentStrategy,
   rootStrategy,
-  updateTheStrategy,
+  updateStrategy,
 }: {
   currentId: number | "root" | null;
   currentDatabase?: Database;
   currentStrategy?: Strategy;
   rootStrategy?: Strategy;
-  updateTheStrategy: (
-    newStrategyValues: Record<string, string | number>,
-  ) => void;
+  updateStrategy: (newStrategyValues: Record<string, string | number>) => void;
 }) => {
   const radioButtonMapRef = useRef<Map<string | null, HTMLInputElement>>(
     new Map(),
@@ -405,7 +403,7 @@ const PickAStrategy = ({
           currentId === "root" ? "root" : `database-${currentId}`
         }`}
         onChange={strategyType => {
-          updateTheStrategy({ type: strategyType });
+          updateStrategy({ type: strategyType });
         }}
         label={
           <Text lh="1rem">{t`When should cached query results be invalidated?`}</Text>

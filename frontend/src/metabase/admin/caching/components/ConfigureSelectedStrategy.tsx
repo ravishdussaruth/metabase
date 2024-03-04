@@ -1,11 +1,10 @@
-import { useState } from "react";
 import type { AnySchema } from "yup";
 
-import CronExpressionInput from "metabase/admin/settings/components/widgets/ModelCachingScheduleWidget/CronExpressionInput";
+// import CronExpressionInput from "metabase/admin/settings/components/widgets/ModelCachingScheduleWidget/CronExpressionInput";
 import { Form, FormProvider, FormTextInput } from "metabase/forms";
 import { Stack } from "metabase/ui";
 
-import type { ScheduleStrategy, Strategy, TTLStrategy } from "../types";
+import type { Strategy, TTLStrategy } from "../types";
 
 export const ConfigureSelectedStrategy = <T extends Strategy>({
   currentStrategy,
@@ -18,7 +17,6 @@ export const ConfigureSelectedStrategy = <T extends Strategy>({
   updateStrategy: (newStrategyValues: Record<string, string | number>) => void;
   children: React.ReactNode;
 }) => {
-
   const handleSubmit = (values: Partial<T>) => {
     // TODO: check that validation at this point makes sense
     // importantly this means we do not save invalid data as a default value for any field
@@ -87,24 +85,24 @@ export const PositiveNumberInput = ({
 //   );
 // };
 
-export const CronInput = ({
-  initialValue,
-  handleSubmit,
-}: {
-  initialValue: string;
-  handleSubmit: (values: Partial<ScheduleStrategy>) => void;
-}) => {
-  const [value, setValue] = useState(initialValue);
-  // TODO: Does this need to be a controlled component?
-  return (
-    <CronExpressionInput
-      value={value}
-      onChange={setValue}
-      onBlurChange={value => {
-        handleSubmit({
-          schedule: value.trim(),
-        });
-      }}
-    />
-  );
-};
+// export const CronInput = ({
+//   initialValue,
+//   handleSubmit,
+// }: {
+//   initialValue: string;
+//   handleSubmit: (values: Partial<ScheduleStrategy>) => void;
+// }) => {
+//   const [value, setValue] = useState(initialValue);
+//   // TODO: Does this need to be a controlled component?
+//   return (
+//     <CronExpressionInput
+//       value={value}
+//       onChange={setValue}
+//       onBlurChange={value => {
+//         handleSubmit({
+//           schedule: value.trim(),
+//         });
+//       }}
+//     />
+//   );
+// };

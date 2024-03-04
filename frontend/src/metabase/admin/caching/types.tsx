@@ -111,12 +111,6 @@ export interface Config {
   strategy: Strategy;
 }
 
-export type StrategySetter = (
-  model: Model,
-  modelId: number,
-  newStrategy: Strategy | null,
-) => void;
-
 export type DBStrategySetter = (
   databaseId: number,
   newStrategy: Strategy | null,

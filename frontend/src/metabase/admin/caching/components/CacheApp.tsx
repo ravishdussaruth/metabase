@@ -18,17 +18,13 @@ import { addUndo } from "metabase/redux/undo";
 import { CacheConfigApi } from "metabase/services";
 import { Flex, Tabs } from "metabase/ui";
 
-import {
-  isValidConfig,
-  isValidStrategy,
-  isValidTabId,
-  rootConfigLabel,
-  TabId,
+import type {
+  Model,
   type Config,
   type GetConfigByModelId,
   type Strategy,
-  type StrategySetter,
 } from "../types";
+import { isValidConfig, isValidTabId, rootConfigLabel, TabId } from "../types";
 
 import { Tab, TabsList, TabsPanel } from "./CacheApp.styled";
 import { DatabaseStrategyEditor } from "./DatabaseStrategyEditor";
@@ -172,8 +168,8 @@ export const CacheApp = () => {
     [databases],
   );
 
-  const setStrategy = useCallback<StrategySetter>(
-    async (model, model_id, newStrategy) => {
+  const setStrategy = useCallback(
+    async (model: Model, model_id: number, newStrategy: Strategy | null) => {
       const baseConfig: Pick<Config, "model" | "model_id"> = {
         model,
         model_id,
@@ -197,9 +193,6 @@ export const CacheApp = () => {
       };
 
       if (newStrategy) {
-        if (!isValidStrategy(newStrategy)) {
-          throw new Error(`Invalid strategy: ${JSON.stringify(newStrategy)}`);
-        }
         const newConfig: Config = {
           ...baseConfig,
           strategy: newStrategy,
@@ -239,24 +232,28 @@ export const CacheApp = () => {
   const clearDBOverrides = useCallback(() => {
     setConfigs(configs => configs.filter(({ model }) => model !== "database"));
 
-    const deleteThese = configs.filter(({ model }) => model === "database");
-    deleteThese.forEach(config => {
-      const itemName = getNameForToast(config);
-      const onSuccess = async () => {
-        await showSuccessToast(itemName);
-      };
-      const onError = async () => {
-        await showErrorToast(itemName);
-        // TODO: Revert to earlier state?
-      };
-      debouncedRequest(
-        CacheConfigApi.delete,
-        config,
-        { hasBody: true },
-        onSuccess,
-        onError,
-      );
-    });
+    configs
+      .filter(({ model }) => model === "database")
+      .forEach(config => {
+        if (config.model !== "database") {
+          return;
+        }
+        const itemName = getNameForToast(config);
+        const onSuccess = async () => {
+          await showSuccessToast(itemName);
+        };
+        const onError = async () => {
+          await showErrorToast(itemName);
+          // TODO: Revert to earlier state?
+        };
+        debouncedRequest(
+          CacheConfigApi.delete,
+          config,
+          { hasBody: true },
+          onSuccess,
+          onError,
+        );
+      });
   }, [
     configs,
     debouncedRequest,
