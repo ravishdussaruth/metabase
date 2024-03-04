@@ -7,15 +7,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { t } from "ttag";
-import _ from "underscore";
 import { useAsync } from "react-use";
-import type Database from "metabase-lib/metadata/Database";
+import { t } from "ttag";
+
 import { useDatabaseListQuery } from "metabase/common/hooks";
 import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper";
 import { color } from "metabase/lib/colors";
-import { useDispatch } from "metabase/lib/redux";
-import { addUndo } from "metabase/redux/undo";
 import { CacheConfigApi } from "metabase/services";
 import {
   Button,
@@ -27,11 +24,12 @@ import {
   Text,
   Title,
 } from "metabase/ui";
+import type Database from "metabase-lib/metadata/Database";
+
+import { useCacheAdminRequests } from "../hooks/requests";
+import { useStrategyDefaults } from "../hooks/useDefaults";
 import type {
   Config,
-  DBStrategySetter,
-  DefaultMappings,
-  DefaultsMap,
   DurationStrategy,
   GetConfigByModelId,
   Model,
@@ -39,16 +37,12 @@ import type {
   StrategyType,
   TTLStrategy,
 } from "../types";
-import {
-  initialStrategyDefaults,
-  isValidStrategy,
-  rootConfigLabel,
-  Strategies,
-} from "../types";
+import { isValidStrategy, rootConfigLabel, Strategies } from "../types";
 import {
   durationStrategyValidationSchema,
   ttlStrategyValidationSchema,
 } from "../validation";
+
 import {
   ConfigureSelectedStrategy,
   PositiveNumberInput,
@@ -58,11 +52,11 @@ import {
   ConfigButton,
   Panel,
   TabWrapper,
-} from "./DatabaseStrategyEditor.styled";
+} from "./StrategyEditorForDatabases.styled";
 
 const defaultRootStrategy: Strategy = { type: "nocache" };
 
-export const DatabaseStrategyEditor = ({
+export const StrategyEditorForDatabases = ({
   tabsRef,
   setTabsHeight,
 }: {
@@ -97,29 +91,6 @@ export const DatabaseStrategyEditor = ({
 
   const [configs, setConfigs] = useState<Config[]>([]);
 
-  const dispatch = useDispatch();
-
-  const showSuccessToast = useCallback(async () => {
-    dispatch(
-      addUndo({
-        message: "Updated",
-        toastColor: "success",
-        dismissButtonColor: color("white"),
-      }),
-    );
-  }, [dispatch]);
-
-  const showErrorToast = useCallback(async () => {
-    dispatch(
-      addUndo({
-        icon: "warning",
-        message: "Error",
-        toastColor: "error",
-        dismissButtonColor: color("white"),
-      }),
-    );
-  }, [dispatch]);
-
   useEffect(() => {
     if (configsFromAPI) {
       setConfigs(configsFromAPI as Config[]);
@@ -141,28 +112,17 @@ export const DatabaseStrategyEditor = ({
     return map;
   }, [configs]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedRequest = useCallback(
-    _.debounce(
-      (
-        requestFunction: (
-          arg: any,
-          options: { fetch?: boolean },
-        ) => Promise<any>,
-        arg: any,
-        options: { fetch?: boolean; [key: string]: any },
-        onSuccess: () => Promise<any>,
-        onError: () => Promise<any>,
-      ) => {
-        options.fetch ??= true;
-        return requestFunction(arg, options).then(onSuccess).catch(onError);
-      },
-      // TODO: Perhaps increase the debounce wait time when user is
-      // using arrow keys to change the strategy type
-      200,
-    ),
-    [],
-  );
+  /** Id of the database currently being edited, or 'root' for the root strategy */
+  const [targetId, setTargetId] = useState<number | "root" | null>(null);
+  const rootStrategy = dbConfigs.get("root")?.strategy;
+  const rootStrategyLabel = rootStrategy
+    ? Strategies[rootStrategy?.type]?.label
+    : null;
+  const currentStrategy = dbConfigs.get(targetId)?.strategy;
+  const currentDatabase = databases.find(db => db.id === targetId);
+
+  const { debouncedRequest, showSuccessToast, showErrorToast } =
+    useCacheAdminRequests();
 
   const setStrategy = useCallback(
     (model: Model, model_id: number, newStrategy: Strategy | null) => {
@@ -214,10 +174,10 @@ export const DatabaseStrategyEditor = ({
     [configs, dbConfigs, debouncedRequest, showErrorToast, showSuccessToast],
   );
 
-  const setRootStrategy = (strategy: Strategy) =>
-    setStrategy("root", 0, strategy);
-  const setDBStrategy = (databaseId: number, strategy: Strategy) =>
-    setStrategy("database", databaseId, strategy);
+  const setRootStrategy = (newStrategy: Strategy) =>
+    setStrategy("root", 0, newStrategy);
+  const setDBStrategy = (databaseId: number, newStrategy: Strategy | null) =>
+    setStrategy("database", databaseId, newStrategy);
 
   const clearDBOverrides = useCallback(() => {
     setConfigs(configs => configs.filter(({ model }) => model !== "database"));
@@ -264,7 +224,13 @@ export const DatabaseStrategyEditor = ({
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, [tabsRef, areDatabasesLoading, areConfigsLoading, areConfigsLoading]);
+  }, [
+    tabsRef,
+    setTabsHeight,
+    areDatabasesLoading,
+    areConfigsLoading,
+    areConfigsLoading,
+  ]);
 
   useEffect(
     /**
@@ -277,6 +243,36 @@ export const DatabaseStrategyEditor = ({
     },
     [],
   );
+
+  const defaults = useStrategyDefaults(databases, targetId, currentStrategy);
+
+  const updateStrategy = (newStrategyValues: Partial<Strategy> | null) => {
+    const strategyType: StrategyType | undefined =
+      newStrategyValues?.type ?? currentStrategy?.type;
+    const relevantDefaults =
+      targetId && strategyType ? defaults.get(targetId)?.[strategyType] : null;
+    const newStrategy = {
+      ...relevantDefaults,
+      ...newStrategyValues,
+    };
+    if (!isValidStrategy(newStrategy)) {
+      console.error(`Invalid strategy: ${JSON.stringify(newStrategy)}`);
+      return;
+    }
+    if (targetId === "root") {
+      setRootStrategy(newStrategy);
+    } else if (targetId !== null) {
+      setDBStrategy(targetId, newStrategy);
+    } else {
+      console.error("No target specified");
+    }
+  };
+
+  const showEditor = targetId !== null;
+
+  const handleFormSubmit = (values: Partial<Strategy>) => {
+    updateStrategy({ ...currentStrategy, ...values });
+  };
 
   if (errorWhenLoadingConfigs || areConfigsLoading) {
     return showLoadingSpinner ? (
@@ -296,77 +292,6 @@ export const DatabaseStrategyEditor = ({
     ) : null;
   }
 
-  /** Id of the database currently being edited, or 'root' for the root strategy */
-  const [currentId, setCurrentId] = useState<number | "root" | null>(null);
-  const rootStrategy = dbConfigs.get("root")?.strategy;
-  const rootStrategyLabel = rootStrategy
-    ? Strategies[rootStrategy?.type]?.label
-    : null;
-  const currentStrategy = dbConfigs.get(currentId)?.strategy;
-  const currentDatabase = databases.find(db => db.id === currentId);
-
-  const [defaults, setDefaults] = useState<DefaultsMap>(
-    () =>
-      new Map(
-        databases.map<[number, DefaultMappings]>(db => [
-          db.id,
-          initialStrategyDefaults,
-        ]),
-      ),
-  );
-
-  if (!defaults.has("root")) {
-    defaults.set("root", initialStrategyDefaults);
-  }
-
-  useEffect(
-    function updateDefaults() {
-      if (currentId === null || !currentStrategy) {
-        return;
-      }
-      setDefaults((defaults: DefaultsMap) => {
-        const type = currentStrategy.type;
-        const mappings = defaults.get(currentId) as DefaultMappings;
-        defaults.set(currentId, {
-          ...mappings,
-          [type]: { ...mappings?.[type], ...currentStrategy },
-        });
-        return defaults;
-      });
-    },
-    [currentStrategy, currentId, setDefaults],
-  );
-
-  const updateStrategy = (newStrategyValues: Partial<Strategy>) => {
-    const strategyType: StrategyType | undefined =
-      newStrategyValues?.type ?? currentStrategy?.type;
-    const relevantDefaults =
-      currentId && strategyType
-        ? defaults.get(currentId)?.[strategyType]
-        : null;
-    const newStrategy = {
-      ...relevantDefaults,
-      ...newStrategyValues,
-    };
-    if (!isValidStrategy(newStrategy)) {
-      console.error(`Invalid strategy: ${JSON.stringify(newStrategy)}`);
-      return false;
-    }
-    if (currentId === "root") {
-      setRootStrategy(newStrategy);
-    } else if (currentId !== null) {
-      setDBStrategy(currentId, newStrategy);
-    } else {
-      console.error("No target specified");
-    }
-  };
-
-  const showEditor = currentId !== null;
-
-  const handleFormSubmit = (values: Partial<Strategy>) => {
-    updateStrategy({ ...currentStrategy, ...values });
-  };
-
   return (
     <TabWrapper role="region" aria-label="Data caching settings">
       <Text component="aside" lh="1rem" maw="32rem" mb="1.5rem">
@@ -385,9 +310,9 @@ export const DatabaseStrategyEditor = ({
         <Panel role="group" style={{ backgroundColor: color("bg-light") }}>
           <ConfigButton
             onClick={() => {
-              setCurrentId("root");
+              setTargetId("root");
             }}
-            variant={currentId === "root" ? "filled" : "white"}
+            variant={targetId === "root" ? "filled" : "white"}
             p="1rem"
             miw="20rem"
             fw="bold"
@@ -396,20 +321,20 @@ export const DatabaseStrategyEditor = ({
               <Icon name="database" />
               {t`Databases`}
             </Flex>
-            <Chip variant={currentId !== "root" ? "filled" : "white"}>
+            <Chip variant={targetId !== "root" ? "filled" : "white"}>
               {rootStrategyLabel}
             </Chip>
           </ConfigButton>
         </Panel>
         <Panel role="group">
           {databases.map(db => (
-            <ClickThisToConfigureADatabase
+            <TargetSwitcher
               db={db}
               key={db.id.toString()}
               dbConfigs={dbConfigs}
-              setDBStrategy={setDBStrategy}
-              currentId={currentId}
-              setCurrentId={setCurrentId}
+              updateStrategy={updateStrategy}
+              targetId={targetId}
+              setTargetId={setTargetId}
             />
           ))}
           <Button
@@ -430,8 +355,8 @@ export const DatabaseStrategyEditor = ({
         <Panel role="group">
           {showEditor && (
             <Stack spacing="xl">
-              <PickAStrategy
-                currentId={currentId}
+              <StrategySelector
+                targetId={targetId}
                 currentDatabase={currentDatabase}
                 currentStrategy={currentStrategy}
                 rootStrategy={rootStrategy}
@@ -526,18 +451,19 @@ TODO: I'm not sure this string translates well
   );
 };
 
-export const ClickThisToConfigureADatabase = ({
+/** Button that changes the target, i.e., which thing's cache invalidation strategy is being edited */
+export const TargetSwitcher = ({
   db,
   dbConfigs,
-  currentId,
-  setCurrentId,
-  setDBStrategy,
+  targetId,
+  setTargetId,
+  updateStrategy,
 }: {
   db: Database;
-  currentId: number | "root" | null;
+  targetId: number | "root" | null;
   dbConfigs: GetConfigByModelId;
-  setCurrentId: Dispatch<SetStateAction<number | "root" | null>>;
-  setDBStrategy: DBStrategySetter;
+  setTargetId: Dispatch<SetStateAction<number | "root" | null>>;
+  updateStrategy: (newStrategyValues: Partial<Strategy> | null) => void;
 }) => {
   const dbConfig = dbConfigs.get(db.id);
   const rootStrategy = dbConfigs.get("root")?.strategy;
@@ -548,14 +474,14 @@ export const ClickThisToConfigureADatabase = ({
     throw new Error(t`Invalid strategy "${JSON.stringify(strategyForDB)}"`);
   }
   const strategyLabel = Strategies[strategyForDB.type]?.label;
-  const isBeingEdited = currentId === db.id;
+  const isBeingEdited = targetId === db.id;
   const clearOverride = () => {
-    setDBStrategy(db.id, null);
+    updateStrategy(null);
   };
   return (
     <ConfigButton
       onClick={() => {
-        setCurrentId(db.id);
+        setTargetId(db.id);
       }}
       variant={isBeingEdited ? "filled" : "white"}
       w="100%"
@@ -594,14 +520,14 @@ export const ClickThisToConfigureADatabase = ({
   );
 };
 
-const PickAStrategy = ({
-  currentId,
+const StrategySelector = ({
+  targetId,
   currentDatabase,
   currentStrategy,
   rootStrategy,
   updateStrategy,
 }: {
-  currentId: number | "root" | null;
+  targetId: number | "root" | null;
   currentDatabase?: Database;
   currentStrategy?: Strategy;
   rootStrategy?: Strategy;
@@ -619,23 +545,23 @@ const PickAStrategy = ({
         radioButtonMapRef.current?.get(inferredStrategyType)?.focus();
       }
     },
-    // We only want to focus the radio button when the currentId changes,
+    // We only want to focus the radio button when the targetId changes,
     // not when the strategy changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentId],
+    [targetId],
   );
 
   return (
     <section>
       <Title order={2} mb="1rem">
-        {currentId === "root"
+        {targetId === "root"
           ? rootConfigLabel
           : currentDatabase?.name.trim() || "Untitled database"}
       </Title>
       <Radio.Group
         value={inferredStrategyType}
         name={`caching-strategy-for-${
-          currentId === "root" ? "root" : `database-${currentId}`
+          targetId === "root" ? "root" : `database-${targetId}`
         }`}
         onChange={strategyType => {
           updateStrategy({ type: strategyType });

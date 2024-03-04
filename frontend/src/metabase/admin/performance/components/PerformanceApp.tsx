@@ -1,30 +1,12 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { useAsync } from "react-use";
+import { useRef, useState } from "react";
 import { t } from "ttag";
-import _ from "underscore";
 
-import { useDatabaseListQuery } from "metabase/common/hooks";
-import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper";
-import { color } from "metabase/lib/colors";
-import { useDispatch } from "metabase/lib/redux";
-import { addUndo } from "metabase/redux/undo";
-import { CacheConfigApi } from "metabase/services";
 import { Flex, Tabs } from "metabase/ui";
 
-import type { Config, GetConfigByModelId, Model, Strategy } from "../types";
 import { isValidTabId, TabId } from "../types";
 
-import { DatabaseStrategyEditor } from "./DatabaseStrategyEditor";
 import { Tab, TabsList, TabsPanel } from "./PerformanceApp.styled";
-
-const defaultRootStrategy: Strategy = { type: "nocache" };
+import { StrategyEditorForDatabases } from "./StrategyEditorForDatabases";
 
 export const PerformanceApp = () => {
   const [tabId, setTabId] = useState<TabId>(TabId.DataCachingSettings);
@@ -61,7 +43,7 @@ export const PerformanceApp = () => {
         p="1rem 2.5rem"
       >
         <Flex style={{ flex: 1 }} bg="bg-light" h="100%">
-          <DatabaseStrategyEditor
+          <StrategyEditorForDatabases
             setTabsHeight={setTabsHeight}
             tabsRef={tabsRef}
           />

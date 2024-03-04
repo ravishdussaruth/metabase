@@ -52,7 +52,9 @@ export const ConfigButton = styled(Button)<ButtonProps>`
 `;
 ConfigButton.defaultProps = { animate: false, radius: "sm" };
 
-export const Chip = styled(ConfigButton)<{
+export const Chip = styled(ConfigButton, {
+  shouldForwardProp: prop => prop !== "configIsBeingEdited",
+})<{
   configIsBeingEdited?: boolean;
   variant: string;
 }>`

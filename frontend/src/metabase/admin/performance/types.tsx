@@ -131,35 +131,4 @@ export type ObjectWithType = {
   [key: string]: string;
 };
 
-export type DefaultMappings = {
-  nocache: Partial<DoNotCacheStrategy>;
-  ttl: Partial<TTLStrategy>;
-  duration: Partial<DurationStrategy>;
-  // schedule: Partial<ScheduleStrategy>;
-  // query: Partial<QueryStrategy>;
-};
-
-export type DefaultsMap = Map<number | "root", DefaultMappings>;
-
-export const initialStrategyDefaults: DefaultMappings = {
-  ttl: {
-    min_duration: 1,
-    multiplier: 1,
-  },
-  duration: {
-    duration: 1,
-    unit: "hours",
-  },
-  nocache: {},
-  // schedule: {
-  //   schedule: "* * * * *",
-  // },
-  // query: {
-  //   field_id: 1,
-  //   aggregation: "max",
-  //   schedule: "* * * * *",
-  // },
-  // TODO: Use better defaults
-};
-
 export const rootConfigLabel = t`Default for all databases`;
