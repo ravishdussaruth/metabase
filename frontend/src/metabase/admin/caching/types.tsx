@@ -141,19 +141,19 @@ export const isValidStrategy = (x: unknown): x is Strategy => {
       isValidUnitOfTime(x.unit)
     );
   }
-  if (x.type === "schedule") {
-    return (
-      keyCount === 2 && x.type === "schedule" && typeof x.schedule === "string"
-    );
-  }
-  if (x.type === "query") {
-    return (
-      keyCount === 4 &&
-      typeof x.field_id === "number" &&
-      ["max", "count"].includes(x.aggregation) &&
-      typeof x.schedule === "string"
-    );
-  }
+  // if (x.type === "schedule") {
+  //   return (
+  //     keyCount === 2 && x.type === "schedule" && typeof x.schedule === "string"
+  //   );
+  // }
+  // if (x.type === "query") {
+  //   return (
+  //     keyCount === 4 &&
+  //     typeof x.field_id === "number" &&
+  //     ["max", "count"].includes(x.aggregation) &&
+  //     typeof x.schedule === "string"
+  //   );
+  // }
   return false;
 };
 
