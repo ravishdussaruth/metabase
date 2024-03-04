@@ -178,6 +178,8 @@ export const StrategyEditorForDatabases = ({
     setStrategy("root", 0, newStrategy);
   const setDBStrategy = (databaseId: number, newStrategy: Strategy | null) =>
     setStrategy("database", databaseId, newStrategy);
+  const deleteDBStrategy = (databaseId: number) =>
+    setDBStrategy(databaseId, null);
 
   const clearDBOverrides = useCallback(() => {
     setConfigs(configs => configs.filter(({ model }) => model !== "database"));
@@ -332,7 +334,7 @@ export const StrategyEditorForDatabases = ({
               db={db}
               key={db.id.toString()}
               dbConfigs={dbConfigs}
-              updateStrategy={updateStrategy}
+              deleteDBStrategy={deleteDBStrategy}
               targetId={targetId}
               setTargetId={setTargetId}
             />
@@ -457,13 +459,13 @@ export const TargetSwitcher = ({
   dbConfigs,
   targetId,
   setTargetId,
-  updateStrategy,
+  deleteDBStrategy,
 }: {
   db: Database;
   targetId: number | "root" | null;
   dbConfigs: GetConfigByModelId;
   setTargetId: Dispatch<SetStateAction<number | "root" | null>>;
-  updateStrategy: (newStrategyValues: Partial<Strategy> | null) => void;
+  deleteDBStrategy: (databaseId: number) => void;
 }) => {
   const dbConfig = dbConfigs.get(db.id);
   const rootStrategy = dbConfigs.get("root")?.strategy;
@@ -476,7 +478,7 @@ export const TargetSwitcher = ({
   const strategyLabel = Strategies[strategyForDB.type]?.label;
   const isBeingEdited = targetId === db.id;
   const clearOverride = () => {
-    updateStrategy(null);
+    deleteDBStrategy(db.id);
   };
   return (
     <ConfigButton
