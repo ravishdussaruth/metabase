@@ -19,7 +19,7 @@ import { CacheConfigApi } from "metabase/services";
 import { Flex, Tabs } from "metabase/ui";
 
 import type { Config, GetConfigByModelId, Model, Strategy } from "../types";
-import { isValidConfig, isValidTabId, rootConfigLabel, TabId } from "../types";
+import { isValidTabId, rootConfigLabel, TabId } from "../types";
 
 import { Tab, TabsList, TabsPanel } from "./CacheApp.styled";
 import { DatabaseStrategyEditor } from "./DatabaseStrategyEditor";
@@ -89,35 +89,15 @@ export const CacheApp = () => {
   );
 
   useEffect(() => {
-    // TODO: Remove validation?
     if (configsFromAPI) {
-      const validConfigs = configsFromAPI.reduce<Config[]>(
-        (acc, configFromAPI: unknown) => {
-          if (isValidConfig(configFromAPI)) {
-            return [...acc, configFromAPI];
-          } else {
-            console.error(
-              `Invalid config retrieved from API: ${JSON.stringify(
-                configFromAPI,
-              )}`,
-            );
-            return acc;
-          }
-        },
-        [],
-      );
-      setConfigs(validConfigs);
+      setConfigs(configsFromAPI as Config[]);
     }
   }, [configsFromAPI]);
 
   const dbConfigs: GetConfigByModelId = useMemo(() => {
     const map: GetConfigByModelId = new Map();
     configs.forEach(config => {
-      if (config.model === "database") {
-        map.set(config.model_id, config);
-      } else if (config.model === "root") {
-        map.set("root", config);
-      }
+      map.set(config.model === "database" ? config.model_id : "root", config);
     });
     if (!map.has("root")) {
       map.set("root", {
@@ -194,9 +174,6 @@ export const CacheApp = () => {
           ...baseConfig,
           strategy: newStrategy,
         };
-        if (!isValidConfig(newConfig)) {
-          throw new Error(`Invalid cache config: ${JSON.stringify(newConfig)}`);
-        }
         setConfigs([...otherConfigs, newConfig]);
         debouncedRequest(
           CacheConfigApi.update,

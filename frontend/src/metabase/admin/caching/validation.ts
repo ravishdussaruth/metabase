@@ -1,6 +1,8 @@
 import { t } from "ttag";
 import * as Yup from "yup";
 
+import { Strategies, isValidStrategyName } from "./types";
+
 export const unitOfTimeRegex = /hours|minutes|seconds|days/;
 
 const positiveInteger = Yup.number()
@@ -12,6 +14,8 @@ const requiredPositiveInteger = positiveInteger.required(t`Required field`);
 export const isValidPositiveInteger = (value: unknown) =>
   positiveInteger.isValidSync(value);
 
+export const doNotCacheStrategyValidationSchema = Yup.object({});
+
 export const ttlStrategyValidationSchema = Yup.object({
   min_duration: requiredPositiveInteger,
   multiplier: requiredPositiveInteger,
@@ -20,6 +24,17 @@ export const ttlStrategyValidationSchema = Yup.object({
 export const durationStrategyValidationSchema = Yup.object({
   duration: requiredPositiveInteger,
   unit: Yup.string().matches(unitOfTimeRegex),
+});
+
+export const strategyValidationSchema = Yup.lazy(value => {
+  const type = value?.type;
+  return isValidStrategyName(type)
+    ? Strategies[type].validateWith
+    : Yup.object().test(
+        "invalid-strategy",
+        "The object must match one of the strategy validation schemas",
+        () => false,
+      );
 });
 
 // TODO: These schemas are to be added in later

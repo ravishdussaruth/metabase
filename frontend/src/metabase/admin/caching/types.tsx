@@ -2,16 +2,17 @@ import { t } from "ttag";
 import type { AnySchema } from "yup";
 
 import {
+  doNotCacheStrategyValidationSchema,
   durationStrategyValidationSchema,
+  strategyValidationSchema,
   //queryStrategyValidationSchema,
   //scheduleStrategyValidationSchema,
   ttlStrategyValidationSchema,
-  unitOfTimeRegex,
 } from "./validation";
 
 type StrategyData = {
   label: string;
-  validateWith?: AnySchema;
+  validateWith: AnySchema;
 };
 
 export type StrategyType = "nocache" | "ttl" | "duration";
@@ -20,7 +21,10 @@ export type StrategyType = "nocache" | "ttl" | "duration";
 
 /** Cache invalidation strategies and related metadata */
 export const Strategies: Record<StrategyType, StrategyData> = {
-  nocache: { label: t`Don't cache` },
+  nocache: {
+    label: t`Don't cache`,
+    validateWith: doNotCacheStrategyValidationSchema,
+  },
   ttl: {
     label: t`When the TTL expires`,
     validateWith: ttlStrategyValidationSchema,
@@ -46,11 +50,6 @@ export const isValidStrategyName = (
   return Object.keys(Strategies).includes(strategy);
 };
 
-export type UnitOfTime = "hours" | "minutes" | "seconds" | "days";
-
-const isValidUnitOfTime = (x: unknown): x is UnitOfTime =>
-  typeof x === "string" && unitOfTimeRegex.test(x);
-
 export type GetConfigByModelId = Map<number | "root" | null, Config>;
 
 export type Model =
@@ -59,10 +58,6 @@ export type Model =
   | "collection"
   | "dashboard"
   | "question";
-
-const isValidModel = (x: unknown): x is Model =>
-  typeof x === "string" &&
-  ["root", "database", "collection", "dashboard", "question"].includes(x);
 
 interface StrategyBase {
   type: StrategyType;
@@ -118,73 +113,9 @@ export type DBStrategySetter = (
 
 export type RootStrategySetter = (newStrategy: Strategy | null) => void;
 
-// TODO:  Either remove this validation or perhaps use Yup
 export const isValidStrategy = (x: unknown): x is Strategy => {
-  if (!hasType(x)) {
-    return false;
-  }
-  const keyCount = Object.keys(x).length;
-  if (x.type === "nocache") {
-    return keyCount === 1;
-  }
-  if (x.type === "ttl") {
-    return (
-      keyCount === 3 &&
-      typeof x.min_duration === "number" &&
-      typeof x.multiplier === "number"
-    );
-  }
-  if (x.type === "duration") {
-    return (
-      keyCount === 3 &&
-      typeof x.duration === "number" &&
-      isValidUnitOfTime(x.unit)
-    );
-  }
-  // if (x.type === "schedule") {
-  //   return (
-  //     keyCount === 2 && x.type === "schedule" && typeof x.schedule === "string"
-  //   );
-  // }
-  // if (x.type === "query") {
-  //   return (
-  //     keyCount === 4 &&
-  //     typeof x.field_id === "number" &&
-  //     ["max", "count"].includes(x.aggregation) &&
-  //     typeof x.schedule === "string"
-  //   );
-  // }
-  return false;
+  return strategyValidationSchema.validateSync(x);
 };
-
-type NonNullObject = {
-  [key: string]: any;
-};
-
-const isValidObject = (x: unknown): x is NonNullObject => {
-  if (typeof x !== "object") {
-    return false;
-  }
-  if (x === null) {
-    return false;
-  }
-  return true;
-};
-
-const hasType = (x: unknown): x is NonNullObject & { type: any } =>
-  isValidObject(x) && "type" in x;
-const hasValidModel = (x: unknown): x is NonNullObject & { model: Model } =>
-  isValidObject(x) && "model" in x && isValidModel(x.model);
-const hasValidModelId = (
-  x: unknown,
-): x is NonNullObject & { model_id: number } =>
-  isValidObject(x) && "model_id" in x && typeof x.model_id === "number";
-const hasValidStrategy = (
-  x: unknown,
-): x is NonNullObject & { strategy: Strategy } =>
-  isValidObject(x) && "strategy" in x && isValidStrategy(x.strategy);
-export const isValidConfig = (x: unknown): x is Config =>
-  hasValidModel(x) && hasValidModelId(x) && hasValidStrategy(x);
 
 export enum TabId {
   DataCachingSettings = "dataCachingSettings",
