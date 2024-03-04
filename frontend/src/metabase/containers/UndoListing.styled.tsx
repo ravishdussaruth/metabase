@@ -2,7 +2,7 @@ import styled from "@emotion/styled";
 
 import Card from "metabase/components/Card";
 import Link from "metabase/core/components/Link";
-import { alpha, color, lighten } from "metabase/lib/colors";
+import { alpha, color } from "metabase/lib/colors";
 import { space } from "metabase/styled-components/theme";
 import type { BoxProps } from "metabase/ui";
 import { Box, Icon } from "metabase/ui";
@@ -74,6 +74,6 @@ export const DismissIcon = styled(Icon)`
   cursor: pointer;
 
   :hover {
-    opacity: .7;
+    opacity: 0.7;
   }
 `;
