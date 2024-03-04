@@ -27,16 +27,6 @@ export const TabsPanel = styled(Tabs.Panel)`
   display: flex;
   flex-flow: column nowrap;
   flex: 1;
-  height: calc(100% - 41px);
-  padding: 1rem 2.5rem;
   overflow: hidden;
   justify-content: stretch;
-`;
-
-// TODO: Maybe this isn't needed
-export const TabContentWrapper = styled.div`
-  flex: 1;
-  background-color: ${color("bg-light")};
-  display: flex;
-  height: 100%;
 `;

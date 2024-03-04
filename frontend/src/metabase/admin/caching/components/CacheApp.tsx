@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useAsync } from "react-use";
 import { t } from "ttag";
+import _ from "underscore";
 
 import { useDatabaseListQuery } from "metabase/common/hooks";
 import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper";
@@ -15,7 +16,7 @@ import { color } from "metabase/lib/colors";
 import { useDispatch } from "metabase/lib/redux";
 import { addUndo } from "metabase/redux/undo";
 import { CacheConfigApi } from "metabase/services";
-import { Tabs } from "metabase/ui";
+import { Flex, Tabs } from "metabase/ui";
 
 import {
   isValidConfig,
@@ -29,8 +30,7 @@ import {
   type StrategySetter,
 } from "../types";
 
-import _ from "underscore";
-import { Tab, TabContentWrapper, TabsList, TabsPanel } from "./CacheApp.styled";
+import { Tab, TabsList, TabsPanel } from "./CacheApp.styled";
 import { DatabaseStrategyEditor } from "./DatabaseStrategyEditor";
 
 const defaultRootStrategy: Strategy = { type: "nocache" };
@@ -138,6 +138,7 @@ export const CacheApp = () => {
     return map;
   }, [configs]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedRequest = useCallback(
     _.debounce(
       (
@@ -158,15 +159,18 @@ export const CacheApp = () => {
     [],
   );
 
-  const getNameForToast = (config: Pick<Config, "model" | "model_id">) => {
-    const { model, model_id } = config;
-    const itemName = `cache configuration for ${
-      model === "root"
-        ? rootConfigLabel
-        : databases.find(db => db.id === model_id)?.name
-    }`;
-    return itemName;
-  };
+  const getNameForToast = useCallback(
+    (config: Pick<Config, "model" | "model_id">) => {
+      const { model, model_id } = config;
+      const itemName = `cache configuration for ${
+        model === "root"
+          ? rootConfigLabel
+          : databases.find(db => db.id === model_id)?.name
+      }`;
+      return itemName;
+    },
+    [databases],
+  );
 
   const setStrategy = useCallback<StrategySetter>(
     async (model, model_id, newStrategy) => {
@@ -222,7 +226,14 @@ export const CacheApp = () => {
         );
       }
     },
-    [configs, databases, dbConfigs, showErrorToast, showSuccessToast],
+    [
+      configs,
+      dbConfigs,
+      debouncedRequest,
+      getNameForToast,
+      showErrorToast,
+      showSuccessToast,
+    ],
   );
 
   const clearDBOverrides = useCallback(() => {
@@ -246,7 +257,13 @@ export const CacheApp = () => {
         onError,
       );
     });
-  }, []);
+  }, [
+    configs,
+    debouncedRequest,
+    showErrorToast,
+    showSuccessToast,
+    getNameForToast,
+  ]);
 
   useLayoutEffect(() => {
     const handleResize = () => {
@@ -307,8 +324,13 @@ export const CacheApp = () => {
           {t`Data caching settings`}
         </Tab>
       </TabsList>
-      <TabsPanel key={tabId} value={tabId}>
-        <TabContentWrapper>
+      <TabsPanel
+        key={tabId}
+        value={tabId}
+        h="calc(100% - 41px)"
+        p="1rem 2.5rem"
+      >
+        <Flex style={{ flex: 1 }} bg="bg-light" h="100%">
           <DatabaseStrategyEditor
             databases={databases}
             dbConfigs={dbConfigs}
@@ -318,7 +340,7 @@ export const CacheApp = () => {
             }
             clearDBOverrides={clearDBOverrides}
           />
-        </TabContentWrapper>
+        </Flex>
       </TabsPanel>
     </Tabs>
   );
