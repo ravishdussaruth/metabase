@@ -21,12 +21,12 @@ import { Flex, Tabs } from "metabase/ui";
 import type { Config, GetConfigByModelId, Model, Strategy } from "../types";
 import { isValidTabId, rootConfigLabel, TabId } from "../types";
 
-import { Tab, TabsList, TabsPanel } from "./CacheApp.styled";
 import { DatabaseStrategyEditor } from "./DatabaseStrategyEditor";
+import { Tab, TabsList, TabsPanel } from "./PerformanceApp.styled";
 
 const defaultRootStrategy: Strategy = { type: "nocache" };
 
-export const CacheApp = () => {
+export const PerformanceApp = () => {
   const [tabId, setTabId] = useState<TabId>(TabId.DataCachingSettings);
   const [tabsHeight, setTabsHeight] = useState<number>(300);
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -279,7 +279,7 @@ export const CacheApp = () => {
       onTabChange={value => {
         if (isValidTabId(value)) {
           setTabId(value);
-          // perhaps later use: dispatch(push(`/admin/caching/${value}`));
+          // perhaps later use: dispatch(push(`/admin/performance/${value}`));
           // or history.pushState to avoid reloading too much?
         } else {
           console.error("Invalid tab value", value);

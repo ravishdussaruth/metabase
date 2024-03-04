@@ -5,7 +5,6 @@ import { UserAuthWrapper } from "redux-auth-wrapper";
 import { t } from "ttag";
 
 import AdminApp from "metabase/admin/app/components/AdminApp";
-import { CacheApp } from "metabase/admin/caching/components/CacheApp";
 import DatabaseEditApp from "metabase/admin/databases/containers/DatabaseEditApp";
 import DatabaseListApp from "metabase/admin/databases/containers/DatabaseListApp";
 import DataModelApp from "metabase/admin/datamodel/containers/DataModelApp";
@@ -24,6 +23,7 @@ import PeopleListingApp from "metabase/admin/people/containers/PeopleListingApp"
 import UserActivationModal from "metabase/admin/people/containers/UserActivationModal";
 import UserPasswordResetModal from "metabase/admin/people/containers/UserPasswordResetModal";
 import UserSuccessModal from "metabase/admin/people/containers/UserSuccessModal";
+import { PerformanceApp } from "metabase/admin/performance/components/PerformanceApp";
 import getAdminPermissionsRoutes from "metabase/admin/permissions/routes";
 import { SettingsEditor } from "metabase/admin/settings/app/components/SettingsEditor";
 import { Help } from "metabase/admin/tasks/components/Help";
@@ -159,15 +159,12 @@ const getRoutes = (store, CanAccessSettings, IsAdmin) => (
       <Route path="permissions" component={IsAdmin}>
         {getAdminPermissionsRoutes(store)}
       </Route>
-      {/* TODO: Make this an enterprise-only plugin */}
-      <Route path="caching" component={createAdminRouteGuard("caching")}>
-        <IndexRoute title={t`Caching`} path="" component={CacheApp}>
-          {/*
-              perhaps eventually something like this will be useful:
-          <IndexRedirect to={PLUGIN_ADMIN_CACHING.INDEX_ROUTE} />
-          {PLUGIN_ADMIN_CACHING.EXTRA_ROUTES}
-          */}
-        </IndexRoute>
+      {/* PERFORMANCE */}
+      <Route
+        path="performance"
+        component={createAdminRouteGuard("performance")}
+      >
+        <IndexRoute title={t`Performance`} path="" component={PerformanceApp} />
       </Route>
       <Route
         path="tools"

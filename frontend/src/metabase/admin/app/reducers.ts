@@ -61,8 +61,8 @@ const getAdminPaths: () => AdminPath[] = () => {
 
   items.push({
     name: t`Performance`,
-    path: "/admin/caching",
-    key: "caching",
+    path: "/admin/performance",
+    key: "performance",
   });
 
   return items;
