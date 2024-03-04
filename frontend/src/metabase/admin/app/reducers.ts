@@ -42,7 +42,7 @@ const getAdminPaths: () => AdminPath[] = () => {
       key: "permissions",
     },
     {
-      name: t`Caching`,
+      name: t`Performance`,
       path: "/admin/caching",
       key: "caching",
     },
