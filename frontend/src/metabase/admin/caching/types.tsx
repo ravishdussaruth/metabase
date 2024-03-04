@@ -161,11 +161,6 @@ type NonNullObject = {
   [key: string]: any;
 };
 
-type StrategyFromAPI = {
-  strategy: Strategy;
-  config: any;
-};
-
 const isValidObject = (x: unknown): x is NonNullObject => {
   if (typeof x !== "object") {
     return false;
@@ -174,13 +169,6 @@ const isValidObject = (x: unknown): x is NonNullObject => {
     return false;
   }
   return true;
-};
-
-export const isValidConfigFromAPI = (x: unknown): x is StrategyFromAPI => {
-  if (!isValidObject(x)) {
-    return false;
-  }
-  return "strategy" in x && "config" in x;
 };
 
 const hasType = (x: unknown): x is NonNullObject & { type: any } =>
