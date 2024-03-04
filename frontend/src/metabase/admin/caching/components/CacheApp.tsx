@@ -18,12 +18,7 @@ import { addUndo } from "metabase/redux/undo";
 import { CacheConfigApi } from "metabase/services";
 import { Flex, Tabs } from "metabase/ui";
 
-import type {
-  Model,
-  type Config,
-  type GetConfigByModelId,
-  type Strategy,
-} from "../types";
+import type { Config, GetConfigByModelId, Model, Strategy } from "../types";
 import { isValidConfig, isValidTabId, rootConfigLabel, TabId } from "../types";
 
 import { Tab, TabsList, TabsPanel } from "./CacheApp.styled";

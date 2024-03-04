@@ -41,11 +41,6 @@ const getAdminPaths: () => AdminPath[] = () => {
       path: "/admin/permissions",
       key: "permissions",
     },
-    {
-      name: t`Performance`,
-      path: "/admin/caching",
-      key: "caching",
-    },
   ];
 
   const isModelPersistenceEnabled = Settings.get("persisted-models-enabled");
@@ -62,6 +57,12 @@ const getAdminPaths: () => AdminPath[] = () => {
     name: t`Troubleshooting`,
     path: "/admin/troubleshooting",
     key: "troubleshooting",
+  });
+
+  items.push({
+    name: t`Performance`,
+    path: "/admin/caching",
+    key: "caching",
   });
 
   return items;
