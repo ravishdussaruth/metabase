@@ -138,10 +138,10 @@ export const PerformanceApp = () => {
 
       const oldConfig = dbConfigs.get(model_id);
       const onSuccess = async () => {
-        await showSuccessToast(itemName);
+        await showSuccessToast();
       };
       const onError = async () => {
-        await showErrorToast(itemName);
+        await showErrorToast();
         // Revert to earlier state
         setConfigs(oldConfig ? [...otherConfigs, oldConfig] : otherConfigs);
         // FIXME: this reverts to an earlier state even if the user has already
@@ -260,7 +260,7 @@ export const PerformanceApp = () => {
         if (isValidTabId(value)) {
           setTabId(value);
           // perhaps later use: dispatch(push(`/admin/performance/${value}`));
-          // or history.pushState to avoid reloading too much?
+          // or history.pushState to avoid reloading too large a portion of the ui?
         } else {
           console.error("Invalid tab value", value);
         }
