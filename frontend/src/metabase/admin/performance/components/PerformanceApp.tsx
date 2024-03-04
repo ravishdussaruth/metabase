@@ -19,7 +19,7 @@ import { CacheConfigApi } from "metabase/services";
 import { Flex, Tabs } from "metabase/ui";
 
 import type { Config, GetConfigByModelId, Model, Strategy } from "../types";
-import { isValidTabId, rootConfigLabel, TabId } from "../types";
+import { isValidTabId, TabId } from "../types";
 
 import { DatabaseStrategyEditor } from "./DatabaseStrategyEditor";
 import { Tab, TabsList, TabsPanel } from "./PerformanceApp.styled";
@@ -61,32 +61,26 @@ export const PerformanceApp = () => {
 
   const dispatch = useDispatch();
 
-  const showSuccessToast = useCallback(
-    async (itemName?: string) => {
-      dispatch(
-        addUndo({
-          message: `Updated${itemName ? ` ${itemName}` : ""}`,
-          toastColor: "success",
-          dismissButtonColor: color("white"),
-        }),
-      );
-    },
-    [dispatch],
-  );
+  const showSuccessToast = useCallback(async () => {
+    dispatch(
+      addUndo({
+        message: "Updated",
+        toastColor: "success",
+        dismissButtonColor: color("white"),
+      }),
+    );
+  }, [dispatch]);
 
-  const showErrorToast = useCallback(
-    async (itemName?: string) => {
-      dispatch(
-        addUndo({
-          icon: "warning",
-          message: `Error${itemName ? ` updating ${itemName}` : ""}`,
-          toastColor: "error",
-          dismissButtonColor: color("white"),
-        }),
-      );
-    },
-    [dispatch],
-  );
+  const showErrorToast = useCallback(async () => {
+    dispatch(
+      addUndo({
+        icon: "warning",
+        message: "Error",
+        toastColor: "error",
+        dismissButtonColor: color("white"),
+      }),
+    );
+  }, [dispatch]);
 
   useEffect(() => {
     if (configsFromAPI) {
@@ -132,19 +126,6 @@ export const PerformanceApp = () => {
     [],
   );
 
-  const getNameForToast = useCallback(
-    (config: Pick<Config, "model" | "model_id">) => {
-      const { model, model_id } = config;
-      const itemName = `cache configuration for ${
-        model === "root"
-          ? rootConfigLabel
-          : databases.find(db => db.id === model_id)?.name
-      }`;
-      return itemName;
-    },
-    [databases],
-  );
-
   const setStrategy = useCallback(
     async (model: Model, model_id: number, newStrategy: Strategy | null) => {
       const baseConfig: Pick<Config, "model" | "model_id"> = {
@@ -155,7 +136,6 @@ export const PerformanceApp = () => {
         config => config.model_id !== model_id,
       );
 
-      const itemName = getNameForToast(baseConfig);
       const oldConfig = dbConfigs.get(model_id);
       const onSuccess = async () => {
         await showSuccessToast(itemName);
@@ -193,14 +173,7 @@ export const PerformanceApp = () => {
         );
       }
     },
-    [
-      configs,
-      dbConfigs,
-      debouncedRequest,
-      getNameForToast,
-      showErrorToast,
-      showSuccessToast,
-    ],
+    [configs, dbConfigs, debouncedRequest, showErrorToast, showSuccessToast],
   );
 
   const clearDBOverrides = useCallback(() => {
@@ -212,12 +185,11 @@ export const PerformanceApp = () => {
         if (config.model !== "database") {
           return;
         }
-        const itemName = getNameForToast(config);
         const onSuccess = async () => {
-          await showSuccessToast(itemName);
+          await showSuccessToast();
         };
         const onError = async () => {
-          await showErrorToast(itemName);
+          await showErrorToast();
           // TODO: Revert to earlier state?
         };
         debouncedRequest(
@@ -228,13 +200,7 @@ export const PerformanceApp = () => {
           onError,
         );
       });
-  }, [
-    configs,
-    debouncedRequest,
-    showErrorToast,
-    showSuccessToast,
-    getNameForToast,
-  ]);
+  }, [configs, debouncedRequest, showErrorToast, showSuccessToast]);
 
   useLayoutEffect(() => {
     const handleResize = () => {
