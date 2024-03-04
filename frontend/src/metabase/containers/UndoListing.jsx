@@ -4,6 +4,7 @@ import { t } from "ttag";
 
 import BodyComponent from "metabase/components/BodyComponent";
 import { Ellipsified } from "metabase/core/components/Ellipsified";
+import { color } from "metabase/lib/colors";
 import { isReducedMotionPreferred } from "metabase/lib/dom";
 import { capitalize, inflect } from "metabase/lib/formatting";
 import { useSelector, useDispatch } from "metabase/lib/redux";
@@ -79,7 +80,11 @@ function UndoToast({ undo, onUndo, onDismiss }) {
                 </UndoButton>
               )}
               {undo.canDismiss && (
-                <DismissIcon name="close" onClick={onDismiss} />
+                <DismissIcon
+                  color={undo.dismissButtonColor ?? color("bg-dark")}
+                  name="close"
+                  onClick={onDismiss}
+                />
               )}
             </ControlsCardContent>
           </CardContent>

@@ -1,36 +1,55 @@
 import type { Dispatch, MouseEvent, SetStateAction } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { t } from "ttag";
-import * as Yup from "yup";
 
-import { Form, FormProvider, FormTextInput } from "metabase/forms";
 import { color } from "metabase/lib/colors";
-import type { ButtonProps } from "metabase/ui";
-import { Icon, Radio, Text, Title } from "metabase/ui";
+import {
+  Button,
+  Flex,
+  Grid,
+  Icon,
+  Radio,
+  Stack,
+  Text,
+  Title,
+} from "metabase/ui";
 import type Database from "metabase-lib/metadata/Database";
 
 import type {
   DBStrategySetter,
+  DefaultMappings,
+  DefaultsMap,
+  DurationStrategy,
   GetConfigByModelId,
   RootStrategySetter,
+  ScheduleStrategy,
+  Strategy,
+  StrategyType,
   TTLStrategy,
 } from "../types";
-import { isValidStrategy, Strategies } from "../types";
+import {
+  initialStrategyDefaults,
+  isValidStrategy,
+  rootConfigLabel,
+  Strategies,
+} from "../types";
+import {
+  durationStrategyValidationSchema,
+  scheduleStrategyValidationSchema,
+  ttlStrategyValidationSchema,
+} from "../validation";
 
 import {
-  ClearOverridesButton,
-  ConfigDisplay,
-  ConfigPanel,
-  ConfigPanelSection,
-  DatabaseConfigDisplayStyled,
-  DatabasesConfigIcon,
-  Editor,
-  EditorPanel,
-  Explanation,
-  StrategyDisplay,
+  ConfigureSelectedStrategy,
+  CronInput,
+  PositiveNumberInput,
+} from "./ConfigureSelectedStrategy";
+import {
+  Chip,
+  ConfigButton,
+  Panel,
   TabWrapper,
 } from "./DatabaseStrategyEditor.styled";
-
 export const DatabaseStrategyEditor = ({
   databases,
   dbConfigs,
@@ -53,58 +72,49 @@ export const DatabaseStrategyEditor = ({
   const currentStrategy = dbConfigs.get(currentId)?.strategy;
   const currentDatabase = databases.find(db => db.id === currentId);
 
-  const ttlInitialDefault = {
-    min_duration: 1,
-    multiplier: 1,
-  };
+  const [defaults, setDefaults] = useState<DefaultsMap>(
+    () =>
+      new Map(
+        databases.map<[number, DefaultMappings]>(db => [
+          db.id,
+          initialStrategyDefaults,
+        ]),
+      ),
+  );
 
-  const [ttlDefaults, setTTLDefaults] = useState<
-    Map<number | "root", Partial<TTLStrategy>>
-  >(() => new Map(databases.map(db => [db.id, ttlInitialDefault])));
-
-  if (!ttlDefaults.has("root")) {
-    ttlDefaults.set("root", ttlInitialDefault);
+  if (!defaults.has("root")) {
+    defaults.set("root", initialStrategyDefaults);
   }
 
-  // const [defaultsForQueryStrategy, setDefaultsForQueryStrategy] = useState({ field_id: 0, aggregation: "", schedule: "" });
-
-  useEffect(() => {
-    if (currentId === null) {
-      return;
-    }
-    if (currentStrategy?.type === "ttl") {
-      setTTLDefaults((defaults: Map<number | "root", Partial<TTLStrategy>>) => {
-        // Update defaults with values in the current strategy
-        const defaultsForCurrentId = defaults.get(currentId) ?? {};
-        if (isValidMinDuration(currentStrategy.min_duration)) {
-          defaultsForCurrentId.min_duration = currentStrategy.min_duration;
-        }
-        if (isValidMultiplier(currentStrategy.multiplier)) {
-          defaultsForCurrentId.multiplier = currentStrategy.multiplier;
-        }
-        defaults.set(currentId, defaultsForCurrentId);
+  useEffect(
+    function updateDefaults() {
+      if (currentId === null || !currentStrategy) {
+        return;
+      }
+      setDefaults((defaults: DefaultsMap) => {
+        const type = currentStrategy.type;
+        const mappings = defaults.get(currentId) as DefaultMappings;
+        defaults.set(currentId, {
+          ...mappings,
+          [type]: { ...mappings?.[type], ...currentStrategy },
+        });
         return defaults;
       });
-    }
-  }, [currentStrategy, currentId, setTTLDefaults]);
+    },
+    [currentStrategy, currentId, setDefaults],
+  );
 
-  const updateDatabaseStrategy = (
-    newStrategyValues: Record<string, string | number>,
-  ) => {
-    const type = newStrategyValues?.type ?? currentStrategy?.type;
-    let newStrategy = {};
-    if (type === "ttl") {
-      const ttlDefaultsForCurrentId = currentId
-        ? ttlDefaults.get(currentId)
+  const updateTheStrategy = (newStrategyValues: Partial<Strategy>) => {
+    const strategyType: StrategyType | undefined =
+      newStrategyValues?.type ?? currentStrategy?.type;
+    const relevantDefaults =
+      currentId && strategyType
+        ? defaults.get(currentId)?.[strategyType]
         : null;
-      newStrategy = {
-        ...ttlDefaultsForCurrentId,
-        ...newStrategyValues,
-      };
-    } else {
-      newStrategy = newStrategyValues;
-    }
-    // newStrategyValues.type === 'query' ? { ...defaultsForQueryStrategy, ...newStrategyProperties }
+    const newStrategy = {
+      ...relevantDefaults,
+      ...newStrategyValues,
+    };
     if (!isValidStrategy(newStrategy)) {
       console.error(`Invalid strategy: ${JSON.stringify(newStrategy)}`);
       return false;
@@ -120,38 +130,47 @@ export const DatabaseStrategyEditor = ({
 
   const showEditor = currentId !== null;
 
+  const handleFormSubmit = (values: Partial<Strategy>) => {
+    updateTheStrategy({ ...currentStrategy, ...values });
+  };
+
   return (
     <TabWrapper role="region" aria-label="Data caching settings">
-      <Explanation>
+      <Text component="aside" lh="1rem" maw="32rem" mb="1.5rem">
         {t`Cache the results of queries to have them display instantly. Here you can choose when cached results should be invalidated. You can set up one rule for all your databases, or apply more specific settings to each database.`}
-      </Explanation>
-      <Editor role="form">
-        <EditorPanel
-          role="group"
-          style={{ backgroundColor: color("bg-light") }}
-        >
-          <ConfigDisplay
-            {...getButtonProps({
-              shouldHighlightButton: currentId === "root",
-            })}
+      </Text>
+      <Grid
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          overflow: "hidden",
+        }}
+        w="100%"
+        mb="1rem"
+        role="form"
+      >
+        <Panel role="group" style={{ backgroundColor: color("bg-light") }}>
+          <ConfigButton
             onClick={() => {
               setCurrentId("root");
             }}
+            variant={currentId === "root" ? "filled" : "white"}
+            p="1rem"
+            miw="20rem"
+            fw="bold"
           >
-            <DatabasesConfigIcon name="database" />
-            {t`Databases`}
-            <StrategyDisplay
-              {...getButtonProps({
-                shouldHighlightButton: currentId !== "root",
-              })}
-            >
+            <Flex gap="0.5rem">
+              <Icon name="database" />
+              {t`Databases`}
+            </Flex>
+            <Chip variant={currentId !== "root" ? "filled" : "white"}>
               {rootStrategyLabel}
-            </StrategyDisplay>
-          </ConfigDisplay>
-        </EditorPanel>
-        <EditorPanel role="group">
+            </Chip>
+          </ConfigButton>
+        </Panel>
+        <Panel role="group">
           {databases.map(db => (
-            <DatabaseConfigDisplay
+            <ClickThisToConfigureADatabase
               db={db}
               key={db.id.toString()}
               dbConfigs={dbConfigs}
@@ -160,92 +179,126 @@ export const DatabaseStrategyEditor = ({
               setCurrentId={setCurrentId}
             />
           ))}
-          <ClearOverridesButton
+          <Button
             onClick={() => {
               clearDBOverrides();
             }}
-          >{t`Clear all overrides`}</ClearOverridesButton>
-        </EditorPanel>
-        <ConfigPanel role="group">
+            disabled={dbConfigs.size === 1}
+            style={{
+              border: "none",
+              color:
+                dbConfigs.size === 1 ? color("text-light") : color("error"),
+              backgroundColor: "transparent",
+            }}
+            mt="auto"
+            ml="auto"
+          >{t`Clear all overrides`}</Button>
+        </Panel>
+        <Panel role="group">
           {showEditor && (
-            <>
-              <ConfigPanelSection>
-                <Title order={2} mb="1rem">
-                  {currentId === "root"
-                    ? "Default for all databases"
-                    : currentDatabase?.name.trim() || "Untitled database"}
-                </Title>
-                <Radio.Group
-                  value={currentStrategy?.type ?? rootStrategy?.type}
-                  name={`caching-strategy-for-database-${currentId}`}
-                  onChange={strategyType => {
-                    updateDatabaseStrategy({ type: strategyType });
-                  }}
-                  label={
-                    <Text lh="1rem">{t`When should cached query results be invalidated?`}</Text>
-                  }
-                >
-                  {/*
-                Add later:
-                <Radio mt=".75rem" value="query" label={t`When the data updates`} />
-                <Radio mt=".75rem" value="schedule" label={t`On a schedule`} />
-              */}
-                  <Radio
-                    mt=".75rem"
-                    value="ttl"
-                    label={t`When the TTL expires`}
-                  />
-                  {/*
-                <Radio
-                  mt=".75rem"
-                  value="duration"
-                  label={t`On a regular duration`}
-                />
-                */}
-                  <Radio mt=".75rem" value="nocache" label={t`Don't cache`} />
-                </Radio.Group>
-              </ConfigPanelSection>
+            <Stack spacing="xl">
+              <PickAStrategy
+                currentId={currentId}
+                currentDatabase={currentDatabase}
+                currentStrategy={currentStrategy}
+                rootStrategy={rootStrategy}
+                updateTheStrategy={updateTheStrategy}
+              />
               {currentStrategy?.type === "ttl" && (
-                <TTLStrategyEditor
-                  updateStrategy={updateDatabaseStrategy}
+                <ConfigureSelectedStrategy<TTLStrategy>
+                  updateStrategy={updateTheStrategy}
                   currentStrategy={currentStrategy}
-                />
+                  validationSchema={ttlStrategyValidationSchema}
+                >
+                  <section>
+                    <Title order={3}>{t`Minimum query duration`}</Title>
+                    <p>
+                      {t`Metabase will cache all saved questions with an average query execution time longer than this many seconds:`}
+                    </p>
+                    <PositiveNumberInput
+                      fieldName="min_duration"
+                      handleSubmit={handleFormSubmit}
+                    />
+                  </section>
+                  <section>
+                    <Title
+                      order={3}
+                    >{t`Cache time-to-live (TTL) multiplier`}</Title>
+                    <p>
+                      {t`To determine how long each saved question's cached result should stick around, we take the query's average execution time and multiply that by whatever you input here. So if a query takes on average 2 minutes to run, and you input 10 for your multiplier, its cache entry will persist for 20 minutes.`}
+                    </p>
+                    <PositiveNumberInput
+                      fieldName="multiplier"
+                      handleSubmit={handleFormSubmit}
+                    />
+                  </section>
+                </ConfigureSelectedStrategy>
               )}
-            </>
+              {currentStrategy?.type === "schedule" && (
+                <ConfigureSelectedStrategy<ScheduleStrategy>
+                  updateStrategy={updateTheStrategy}
+                  currentStrategy={currentStrategy}
+                  validationSchema={scheduleStrategyValidationSchema}
+                >
+                  <section>
+                    <Title order={3}>{t`Schedule`}</Title>
+                    <p>{t`(explanation goes here)`}</p>
+                    <CronInput
+                      initialValue={currentStrategy.schedule}
+                      handleSubmit={handleFormSubmit}
+                    />
+                  </section>
+                </ConfigureSelectedStrategy>
+              )}
+              {currentStrategy?.type === "duration" && (
+                <ConfigureSelectedStrategy<DurationStrategy>
+                  updateStrategy={updateTheStrategy}
+                  currentStrategy={currentStrategy}
+                  validationSchema={durationStrategyValidationSchema}
+                >
+                  <section>
+                    <Title order={3}>{t`Duration`}</Title>
+                    <p>{t`(explanation goes here)`}</p>
+                    <PositiveNumberInput
+                      fieldName="duration"
+                      handleSubmit={handleFormSubmit}
+                    />
+                  </section>
+                </ConfigureSelectedStrategy>
+              )}
+            </Stack>
           )}
           {/*
           <StrategyConfig />
               Add later
-          <ConfigPanelSection>
-            <p>
+              <section>
+              <p>
               {jt`We’ll periodically run ${(
-                <code>select max()</code>
+              <code>select max()</code>
               )} on the column selected here to check for new results.`}
-            </p>
-            <Select data={columns} />
-             TODO: I'm not sure this string translates well
-          </ConfigPanelSection>
-          <ConfigPanelSection>
-            <p>{t`Check for new results every...`}</p>
-            <Select data={durations} />
-          </ConfigPanelSection>
+              </p>
+              <Select data={columns} />
+TODO: I'm not sure this string translates well
+</section>
+<section>
+<p>{t`Check for new results every...`}</p>
+<Select data={durations} />
+</section>
             */}
-        </ConfigPanel>
-      </Editor>
+        </Panel>
+      </Grid>
     </TabWrapper>
   );
 };
 
-export const DatabaseConfigDisplay = ({
+export const ClickThisToConfigureADatabase = ({
   db,
-  key,
   dbConfigs,
   currentId,
   setCurrentId,
   setDBStrategy,
 }: {
   db: Database;
-  key: string;
   currentId: number | "root" | null;
   dbConfigs: GetConfigByModelId;
   setCurrentId: Dispatch<SetStateAction<number | "root" | null>>;
@@ -254,7 +307,7 @@ export const DatabaseConfigDisplay = ({
   const dbConfig = dbConfigs.get(db.id);
   const rootStrategy = dbConfigs.get("root")?.strategy;
   const savedDBStrategy = dbConfig?.strategy;
-  const overridesRoot = savedDBStrategy !== undefined;
+  const followsRootStrategy = savedDBStrategy === undefined;
   const strategyForDB = savedDBStrategy ?? rootStrategy;
   if (!strategyForDB) {
     throw new Error(t`Invalid strategy "${JSON.stringify(strategyForDB)}"`);
@@ -264,140 +317,113 @@ export const DatabaseConfigDisplay = ({
   const clearOverride = () => {
     setDBStrategy(db.id, null);
   };
-  const shouldHighlightButton = overridesRoot && !isBeingEdited;
   return (
-    <DatabaseConfigDisplayStyled
-      key={key}
+    <ConfigButton
       onClick={() => {
         setCurrentId(db.id);
       }}
+      variant={isBeingEdited ? "filled" : "white"}
       w="100%"
       fw="bold"
       mb="1rem"
       p="1rem"
       miw="20rem"
-      {...getButtonProps({ shouldHighlightButton: isBeingEdited })}
     >
-      <DatabasesConfigIcon name="database" />
-      {db.name}
-      <StrategyDisplay
-        {...getButtonProps({ shouldHighlightButton })}
+      <Flex gap="0.5rem">
+        <Icon name="database" />
+        {db.name}
+      </Flex>
+      <Chip
+        configIsBeingEdited={isBeingEdited}
         onClick={(e: MouseEvent<HTMLButtonElement>) => {
-          if (overridesRoot) {
+          if (!followsRootStrategy) {
             clearOverride();
             e.stopPropagation();
           }
         }}
+        variant={followsRootStrategy || isBeingEdited ? "white" : "filled"}
+        ml="auto"
+        p="0.75rem 1rem"
+        fw="bold"
       >
-        {strategyLabel}
-        {overridesRoot && <Icon style={{ marginLeft: ".5rem" }} name="close" />}
-      </StrategyDisplay>
-    </DatabaseConfigDisplayStyled>
+        {followsRootStrategy ? (
+          t`Use default`
+        ) : (
+          <>
+            {strategyLabel}
+            <Icon name="close" />
+          </>
+        )}
+      </Chip>
+    </ConfigButton>
   );
 };
 
-// TODO: No bueno, get rid of this
-export const getButtonProps = ({
-  shouldHighlightButton,
-}: {
-  shouldHighlightButton: boolean;
-}): ButtonProps => {
-  return {
-    radius: "sm",
-    style: {
-      border: shouldHighlightButton
-        ? `1px solid ${color("brand")}`
-        : `1px solid ${color("border")}`,
-    },
-    variant: shouldHighlightButton ? "filled" : "white",
-    animate: false,
-  };
-};
-
-const minDurationValidationSchema = Yup.number()
-  .positive(t`The minimum query duration must be a positive number.`)
-  .integer(t`The minimum query duration must be an integer.`)
-  .required(t`Required field`);
-const isValidMinDuration = (x: unknown) =>
-  minDurationValidationSchema.isValidSync(x);
-
-const multiplierValidationSchema = Yup.number()
-  .positive(t`The multiplier must be a positive number.`)
-  .integer(t`The multiplier must be an integer.`)
-  .required(t`Required field`);
-const isValidMultiplier = (x: unknown) =>
-  multiplierValidationSchema.isValidSync(x);
-
-export const ttlStrategyValidationSchema = Yup.object({
-  min_duration: minDurationValidationSchema,
-  multiplier: multiplierValidationSchema,
-});
-
-// TODO: maybe use Mantine's Stack component in conjunction with or instead of ConfigPanelSection
-
-// TODO: Use Form's onChange prop so you don't need a separate StrategyPositiveNumberInput component
-const TTLStrategyEditor = ({
+const PickAStrategy = ({
+  currentId,
+  currentDatabase,
   currentStrategy,
-  updateStrategy,
+  rootStrategy,
+  updateTheStrategy,
 }: {
-  currentStrategy: TTLStrategy;
-  updateStrategy: (newStrategyValues: Record<string, string | number>) => void;
+  currentId: number | "root" | null;
+  currentDatabase?: Database;
+  currentStrategy?: Strategy;
+  rootStrategy?: Strategy;
+  updateTheStrategy: (
+    newStrategyValues: Record<string, string | number>,
+  ) => void;
 }) => {
-  const handleSubmit = (values: Partial<TTLStrategy>) => {
-    updateStrategy({ ...currentStrategy, ...values });
-  };
-  return (
-    <FormProvider
-      initialValues={currentStrategy}
-      validationSchema={ttlStrategyValidationSchema}
-      onSubmit={handleSubmit}
-      enableReinitialize
-    >
-      <Form onSubmit={e => e.preventDefault()}>
-        <ConfigPanelSection>
-          <Title order={3}>{t`Minimum query duration`}</Title>
-          <p>
-            {t`Metabase will cache all saved questions with an average query execution time longer than this many seconds:`}
-          </p>
-          <StrategyPositiveNumberInput
-            fieldName="min_duration"
-            handleSubmit={handleSubmit}
-          />
-        </ConfigPanelSection>
-        <ConfigPanelSection>
-          <Title order={3}>{t`Cache time-to-live (TTL) multiplier`}</Title>
-          <p>
-            {t`To determine how long each saved question's cached result should stick around, we take the query's average execution time and multiply that by whatever you input here. So if a query takes on average 2 minutes to run, and you input 10 for your multiplier, its cache entry will persist for 20 minutes.`}
-          </p>
-          <StrategyPositiveNumberInput
-            fieldName="multiplier"
-            handleSubmit={handleSubmit}
-          />
-        </ConfigPanelSection>
-      </Form>
-    </FormProvider>
+  const radioButtonMapRef = useRef<Map<string | null, HTMLInputElement>>(
+    new Map(),
   );
-};
 
-export const StrategyPositiveNumberInput = ({
-  fieldName,
-  handleSubmit,
-}: {
-  fieldName: string;
-  handleSubmit: (values: Partial<TTLStrategy>) => void;
-}) => {
-  return (
-    <FormTextInput
-      onChange={e =>
-        handleSubmit({
-          [fieldName]: Number(e.target.value.trim() || null),
-        })
+  const inferredStrategyType = currentStrategy?.type ?? rootStrategy?.type;
+
+  useEffect(
+    () => {
+      if (inferredStrategyType) {
+        radioButtonMapRef.current?.get(inferredStrategyType)?.focus();
       }
-      name={fieldName}
-      type="number"
-      min={1}
-      styles={{ input: { maxWidth: "5rem" } }}
-      autoComplete="off"
-    />
+    },
+    // We only want to focus the radio button when the currentId changes,
+    // not when the strategy changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentId],
+  );
+
+  return (
+    <section>
+      <Title order={2} mb="1rem">
+        {currentId === "root"
+          ? rootConfigLabel
+          : currentDatabase?.name.trim() || "Untitled database"}
+      </Title>
+      <Radio.Group
+        value={inferredStrategyType}
+        name={`caching-strategy-for-${
+          currentId === "root" ? "root" : `database-${currentId}`
+        }`}
+        onChange={strategyType => {
+          updateTheStrategy({ type: strategyType });
+        }}
+        label={
+          <Text lh="1rem">{t`When should cached query results be invalidated?`}</Text>
+        }
+      >
+        <Stack mt="md" spacing="md">
+          {Object.entries(Strategies).map(([name, { label }]) => (
+            <Radio
+              ref={(el: HTMLInputElement) => {
+                radioButtonMapRef.current.set(name, el);
+              }}
+              value={name}
+              key={name}
+              label={label}
+            />
+          ))}
+        </Stack>
+      </Radio.Group>
+    </section>
   );
 };

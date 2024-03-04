@@ -1,38 +1,55 @@
 import { t } from "ttag";
+import type { AnySchema } from "yup";
 
-type StrategyTypeData = {
+import {
+  durationStrategyValidationSchema,
+  //queryStrategyValidationSchema,
+  //scheduleStrategyValidationSchema,
+  ttlStrategyValidationSchema,
+  unitOfTimeRegex,
+} from "./validation";
+
+type StrategyData = {
   label: string;
+  validateWith?: AnySchema;
 };
 
-export type StrategyName =
-  | "nocache"
-  | "ttl"
-  | "duration"
-  | "schedule"
-  | "query";
+export type StrategyType = "nocache" | "ttl" | "duration";
+// | "schedule"
+// | "query";
 
-export const Strategies: Record<StrategyName, StrategyTypeData> = {
+/** Cache invalidation strategies and related metadata */
+export const Strategies: Record<StrategyType, StrategyData> = {
   nocache: { label: t`Don't cache` },
   ttl: {
     label: t`When the TTL expires`,
+    validateWith: ttlStrategyValidationSchema,
   },
-  duration: { label: t`On a regular duration` },
-  schedule: { label: t`On a schedule` },
-  query: {
-    label: t`When the data updates`,
+  duration: {
+    label: t`On a regular duration`,
+    validateWith: durationStrategyValidationSchema,
   },
+  // TODO: Add these in later
+  // schedule: {
+  //   label: t`On a schedule`,
+  //   validateWith: scheduleStrategyValidationSchema,
+  // },
+  // query: {
+  //   label: t`When the data updates`,
+  //   validateWith: queryStrategyValidationSchema,
+  // },
 };
 
 export const isValidStrategyName = (
   strategy: string,
-): strategy is StrategyName => {
+): strategy is StrategyType => {
   return Object.keys(Strategies).includes(strategy);
 };
 
 export type UnitOfTime = "hours" | "minutes" | "seconds" | "days";
 
 const isValidUnitOfTime = (x: unknown): x is UnitOfTime =>
-  typeof x === "string" && ["hours", "minutes", "seconds", "days"].includes(x);
+  typeof x === "string" && unitOfTimeRegex.test(x);
 
 export type GetConfigByModelId = Map<number | "root" | null, Config>;
 
@@ -48,7 +65,7 @@ const isValidModel = (x: unknown): x is Model =>
   ["root", "database", "collection", "dashboard", "question"].includes(x);
 
 interface StrategyBase {
-  type: StrategyName;
+  type: StrategyType;
 }
 
 export interface TTLStrategy extends StrategyBase {
@@ -67,25 +84,23 @@ export interface DurationStrategy extends StrategyBase {
   unit: "hours" | "minutes" | "seconds" | "days";
 }
 
-export interface ScheduleStrategy extends StrategyBase {
-  type: "schedule";
-  schedule: string;
-}
+// TODO: Add these in later
+// export interface ScheduleStrategy extends StrategyBase {
+//   type: "schedule";
+//   schedule: string;
+// }
 
-export interface QueryStrategy extends StrategyBase {
-  type: "query";
-  field_id: number;
-  aggregation: "max" | "count";
-  schedule: string;
-}
+// export interface QueryStrategy extends StrategyBase {
+//   type: "query";
+//   field_id: number;
+//   aggregation: "max" | "count";
+//   schedule: string;
+// }
 
 /** Cache invalidation strategy */
-export type Strategy =
-  | DoNotCacheStrategy
-  | TTLStrategy
-  | DurationStrategy
-  | ScheduleStrategy
-  | QueryStrategy;
+export type Strategy = DoNotCacheStrategy | TTLStrategy | DurationStrategy;
+// | ScheduleStrategy
+// | QueryStrategy;
 
 /** Cache invalidation configuration */
 export interface Config {
@@ -94,14 +109,6 @@ export interface Config {
   model_id: number;
   /** Cache invalidation strategy */
   strategy: Strategy;
-}
-
-// This currently has a different shape than CacheConfig
-export interface CacheConfigFromAPI {
-  model: Model;
-  model_id: number;
-  strategy: StrategyName;
-  config: Omit<Strategy, "type">;
 }
 
 export type StrategySetter = (
@@ -117,6 +124,7 @@ export type DBStrategySetter = (
 
 export type RootStrategySetter = (newStrategy: Strategy | null) => void;
 
+// TODO:  Either remove this validation or perhaps use Yup
 export const isValidStrategy = (x: unknown): x is Strategy => {
   if (!hasType(x)) {
     return false;
@@ -134,7 +142,7 @@ export const isValidStrategy = (x: unknown): x is Strategy => {
   }
   if (x.type === "duration") {
     return (
-      keyCount === 2 &&
+      keyCount === 3 &&
       typeof x.duration === "number" &&
       isValidUnitOfTime(x.unit)
     );
@@ -146,7 +154,7 @@ export const isValidStrategy = (x: unknown): x is Strategy => {
   }
   if (x.type === "query") {
     return (
-      keyCount === 3 &&
+      keyCount === 4 &&
       typeof x.field_id === "number" &&
       ["max", "count"].includes(x.aggregation) &&
       typeof x.schedule === "string"
@@ -209,3 +217,36 @@ export type ObjectWithType = {
   type: string;
   [key: string]: string;
 };
+
+export type DefaultMappings = {
+  nocache: Partial<DoNotCacheStrategy>;
+  ttl: Partial<TTLStrategy>;
+  duration: Partial<DurationStrategy>;
+  // schedule: Partial<ScheduleStrategy>;
+  // query: Partial<QueryStrategy>;
+};
+
+export type DefaultsMap = Map<number | "root", DefaultMappings>;
+
+export const initialStrategyDefaults: DefaultMappings = {
+  ttl: {
+    min_duration: 1,
+    multiplier: 1,
+  },
+  duration: {
+    duration: 1,
+    unit: "hours",
+  },
+  nocache: {},
+  // schedule: {
+  //   schedule: "* * * * *",
+  // },
+  // query: {
+  //   field_id: 1,
+  //   aggregation: "max",
+  //   schedule: "* * * * *",
+  // },
+  // TODO: Use better defaults
+};
+
+export const rootConfigLabel = t`Default for all databases`;

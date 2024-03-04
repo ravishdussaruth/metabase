@@ -11,6 +11,9 @@ import { t } from "ttag";
 
 import { useDatabaseListQuery } from "metabase/common/hooks";
 import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper";
+import { color } from "metabase/lib/colors";
+import { useDispatch } from "metabase/lib/redux";
+import { addUndo } from "metabase/redux/undo";
 import { CacheConfigApi } from "metabase/services";
 import { Tabs } from "metabase/ui";
 
@@ -18,6 +21,7 @@ import {
   isValidConfig,
   isValidStrategy,
   isValidTabId,
+  rootConfigLabel,
   TabId,
   type Config,
   type GetConfigByModelId,
@@ -25,25 +29,11 @@ import {
   type StrategySetter,
 } from "../types";
 
+import _ from "underscore";
 import { Tab, TabContentWrapper, TabsList, TabsPanel } from "./CacheApp.styled";
 import { DatabaseStrategyEditor } from "./DatabaseStrategyEditor";
-const defaultRootStrategy: Strategy = { type: "nocache" };
 
-class Serially {
-  private queue: (() => Promise<any>)[] = [];
-  private lastPromise: Promise<any> = Promise.resolve();
-  public do = (promise: Promise<any>) => {
-    this.lastPromise = this.lastPromise
-      .then(() => promise)
-      .catch(() => promise)
-      .finally(() => {
-        this.queue.shift();
-        this.queue[0]?.();
-      });
-    this.queue.push(() => this.lastPromise);
-  };
-}
-const serially = new Serially();
+const defaultRootStrategy: Strategy = { type: "nocache" };
 
 export const CacheApp = () => {
   const [tabId, setTabId] = useState<TabId>(TabId.DataCachingSettings);
@@ -77,6 +67,35 @@ export const CacheApp = () => {
   }, []);
 
   const [configs, setConfigs] = useState<Config[]>([]);
+
+  const dispatch = useDispatch();
+
+  const showSuccessToast = useCallback(
+    async (itemName?: string) => {
+      dispatch(
+        addUndo({
+          message: `Updated${itemName ? ` ${itemName}` : ""}`,
+          toastColor: "success",
+          dismissButtonColor: color("white"),
+        }),
+      );
+    },
+    [dispatch],
+  );
+
+  const showErrorToast = useCallback(
+    async (itemName?: string) => {
+      dispatch(
+        addUndo({
+          icon: "warning",
+          message: `Error${itemName ? ` updating ${itemName}` : ""}`,
+          toastColor: "error",
+          dismissButtonColor: color("white"),
+        }),
+      );
+    },
+    [dispatch],
+  );
 
   useEffect(() => {
     // TODO: Remove validation?
@@ -119,6 +138,36 @@ export const CacheApp = () => {
     return map;
   }, [configs]);
 
+  const debouncedRequest = useCallback(
+    _.debounce(
+      (
+        requestFunction: (
+          arg: any,
+          options: { fetch?: boolean },
+        ) => Promise<any>,
+        arg: any,
+        options: { fetch?: boolean; [key: string]: any },
+        onSuccess: () => Promise<any>,
+        onError: () => Promise<any>,
+      ) => {
+        options.fetch ??= true;
+        return requestFunction(arg, options).then(onSuccess).catch(onError);
+      },
+      200,
+    ),
+    [],
+  );
+
+  const getNameForToast = (config: Pick<Config, "model" | "model_id">) => {
+    const { model, model_id } = config;
+    const itemName = `cache configuration for ${
+      model === "root"
+        ? rootConfigLabel
+        : databases.find(db => db.id === model_id)?.name
+    }`;
+    return itemName;
+  };
+
   const setStrategy = useCallback<StrategySetter>(
     async (model, model_id, newStrategy) => {
       const baseConfig: Pick<Config, "model" | "model_id"> = {
@@ -128,6 +177,21 @@ export const CacheApp = () => {
       const otherConfigs = configs.filter(
         config => config.model_id !== model_id,
       );
+
+      const itemName = getNameForToast(baseConfig);
+      const oldConfig = dbConfigs.get(model_id);
+      const onSuccess = async () => {
+        await showSuccessToast(itemName);
+      };
+      const onError = async () => {
+        await showErrorToast(itemName);
+        // Revert to earlier state
+        setConfigs(oldConfig ? [...otherConfigs, oldConfig] : otherConfigs);
+        // FIXME: this reverts to an earlier state even if the user has already
+        // changed the value again. We should revert only if there is no newer
+        // change
+      };
+
       if (newStrategy) {
         if (!isValidStrategy(newStrategy)) {
           throw new Error(`Invalid strategy: ${JSON.stringify(newStrategy)}`);
@@ -140,20 +204,48 @@ export const CacheApp = () => {
           throw new Error(`Invalid cache config: ${JSON.stringify(newConfig)}`);
         }
         setConfigs([...otherConfigs, newConfig]);
-        // TODO: What if the update fails? This might be over-engineering, but
-        // maybe: always cache the previous state so we can roll back, and show
-        // an error toast?
-        serially.do(CacheConfigApi.update(newConfig));
+        debouncedRequest(
+          CacheConfigApi.update,
+          newConfig,
+          {},
+          onSuccess,
+          onError,
+        );
       } else {
         setConfigs(otherConfigs);
-        serially.do(CacheConfigApi.delete(baseConfig));
+        debouncedRequest(
+          CacheConfigApi.delete,
+          baseConfig,
+          { hasBody: true },
+          onSuccess,
+          onError,
+        );
       }
     },
-    [configs],
+    [configs, databases, dbConfigs, showErrorToast, showSuccessToast],
   );
 
   const clearDBOverrides = useCallback(() => {
     setConfigs(configs => configs.filter(({ model }) => model !== "database"));
+
+    const deleteThese = configs.filter(({ model }) => model === "database");
+    deleteThese.forEach(config => {
+      const itemName = getNameForToast(config);
+      const onSuccess = async () => {
+        await showSuccessToast(itemName);
+      };
+      const onError = async () => {
+        await showErrorToast(itemName);
+        // TODO: Revert to earlier state?
+      };
+      debouncedRequest(
+        CacheConfigApi.delete,
+        config,
+        { hasBody: true },
+        onSuccess,
+        onError,
+      );
+    });
   }, []);
 
   useLayoutEffect(() => {

@@ -3,106 +3,70 @@ import type { HTMLAttributes } from "react";
 
 import { color } from "metabase/lib/colors";
 import type { ButtonProps as BaseButtonProps } from "metabase/ui";
-import { Button, Icon } from "metabase/ui";
+import { Button } from "metabase/ui";
 
 type ButtonProps = BaseButtonProps & HTMLAttributes<HTMLButtonElement>;
 
-// TODO: Use defaultProps instead of getButtonProps
-
-export const EditorPanel = styled.div`
-  overflow-y: scroll;
+export const Panel = styled.div`
+  overflow-y: auto;
   display: flex;
   flex-flow: column nowrap;
   padding: 1.5rem;
   background-color: ${color("white")};
-  border: 2px solid ${color("border")};
+  border-style: solid;
+  border-color: ${color("border")};
+  border-width: 2px 1px 2px 0;
   &:first-child {
+    border-left-width: 2px;
     border-top-left-radius: 1rem;
     border-bottom-left-radius: 1rem;
   }
-  &:first-child,
-  &:nth-child(2) {
-    border-right: none;
-  }
   &:last-child {
+    border-right-width: 2px;
     border-top-right-radius: 1rem;
     border-bottom-right-radius: 1rem;
   }
 `;
 
-export const ConfigPanel = styled(EditorPanel)``;
-
-export const Explanation = styled.aside`
-  max-width: 32rem;
-  margin-bottom: 1rem;
-`;
-
-export const CacheAdminButton = styled(Button)<ButtonProps>`
+export const ConfigButton = styled(Button)<ButtonProps>`
   cursor: pointer;
   display: flex;
   flex-flow: row nowrap;
   align-items: center;
   padding: 1rem;
   overflow: unset;
+  ${({ variant }) =>
+    `border: 1px solid ${color(
+      variant === "filled" ? "brand" : "border",
+    )} ! important`};
   & div {
     flex: 1;
   }
   & span {
     display: flex;
     flex: 1;
-    flex-flow: row nowrap;
+    flex-flow: row wrap;
     justify-content: space-between;
+    gap: 1rem;
   }
 `;
+ConfigButton.defaultProps = { animate: false, radius: "sm" };
 
-export const ConfigDisplay = styled(CacheAdminButton)`
-  padding: 1rem;
-  min-width: 20rem;
-  font-weight: bold;
-`;
-
-export const StrategyDisplay = styled(CacheAdminButton)`
-  margin-left: auto;
-  padding: 0.75rem 1rem;
-  font-weight: bold;
-`;
-
-export const DatabaseConfigDisplayStyled = styled(
-  CacheAdminButton,
-)<ButtonProps>`
-  // TODO: These shrink vertically when there are too many in the panel
-  // TODO: just use a style prop for this since it's just one thing
-  border: 1px solid ${color("border")};
-`;
-
-export const DatabasesConfigIcon = styled(Icon)`
-  margin-right: 0.5rem;
-`;
-
-export const Editor = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  width: 100%;
-  margin-bottom: 1rem;
-  overflow: hidden;
+export const Chip = styled(ConfigButton)<{
+  configIsBeingEdited?: boolean;
+  variant: string;
+}>`
+  ${({ variant, configIsBeingEdited }) =>
+    variant === "white" && configIsBeingEdited
+      ? `border-color: ${color("white")} ! important;`
+      : ""}
+  & span {
+    gap: 0.5rem;
+  }
 `;
 
 export const TabWrapper = styled.div`
   display: grid;
   grid-template-rows: auto 1fr;
   width: 100%;
-`;
-
-export const ClearOverridesButton = styled.button`
-  color: ${color("red")};
-  margin-top: auto;
-  margin-left: auto;
-  cursor: pointer;
-`;
-
-export const ConfigPanelSection = styled.section`
-  margin-bottom: 2rem;
-  &:last-child {
-    margin-bottom: 0;
-  }
 `;
