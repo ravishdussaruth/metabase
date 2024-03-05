@@ -322,7 +322,10 @@ export const StrategyEditorForDatabases = ({
               <Icon name="database" />
               {t`Databases`}
             </Flex>
-            <Chip variant={targetId !== "root" ? "filled" : "white"}>
+            <Chip
+              p="0.75rem 1rem"
+              variant={targetId !== "root" ? "filled" : "white"}
+            >
               {rootStrategyLabel}
             </Chip>
           </ConfigButton>
@@ -506,7 +509,6 @@ export const TargetSwitcher = ({
         variant={followsRootStrategy || isBeingEdited ? "white" : "filled"}
         ml="auto"
         p="0.75rem 1rem"
-        fw="bold"
       >
         {followsRootStrategy ? (
           t`Use default`
