@@ -201,13 +201,15 @@ export const StrategyEditorForDatabases = ({
   const clearDBOverrides = useCallback(() => {
     setConfigs(configs => configs.filter(({ model }) => model !== "database"));
 
-    const ids = configs.reduce(
-      (acc, { model }) =>
-        model === "database" ? [...acc, model.model_id] : acc,
+    const ids = configs.reduce<number[]>(
+      (acc, config) =>
+        config.model === "database" ? [...acc, config.model_id] : acc,
       [],
     );
 
-    if (!ids.length) return;
+    if (!ids.length) {
+      return;
+    }
     const onSuccess = async () => {
       await showSuccessToast();
     };
@@ -217,7 +219,7 @@ export const StrategyEditorForDatabases = ({
     };
     debouncedRequest(
       CacheConfigApi.delete,
-      {model: database, model_id:  ,
+      { model: "database", model_id: ids },
       { hasBody: true },
       onSuccess,
       onError,
