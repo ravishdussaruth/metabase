@@ -201,27 +201,27 @@ export const StrategyEditorForDatabases = ({
   const clearDBOverrides = useCallback(() => {
     setConfigs(configs => configs.filter(({ model }) => model !== "database"));
 
-    configs
-      .filter(({ model }) => model === "database")
-      .forEach(config => {
-        if (config.model !== "database") {
-          return;
-        }
-        const onSuccess = async () => {
-          await showSuccessToast();
-        };
-        const onError = async () => {
-          await showErrorToast();
-          // TODO: Revert to earlier state?
-        };
-        debouncedRequest(
-          CacheConfigApi.delete,
-          config,
-          { hasBody: true },
-          onSuccess,
-          onError,
-        );
-      });
+    const ids = configs.reduce(
+      (acc, { model }) =>
+        model === "database" ? [...acc, model.model_id] : acc,
+      [],
+    );
+
+    if (!ids.length) return;
+    const onSuccess = async () => {
+      await showSuccessToast();
+    };
+    const onError = async () => {
+      await showErrorToast();
+      // TODO: Revert to earlier state?
+    };
+    debouncedRequest(
+      CacheConfigApi.delete,
+      {model: database, model_id:  ,
+      { hasBody: true },
+      onSuccess,
+      onError,
+    );
   }, [configs, debouncedRequest, showErrorToast, showSuccessToast]);
 
   const [showLoadingSpinner, setShowLoadingSpinner] = useState(false);
