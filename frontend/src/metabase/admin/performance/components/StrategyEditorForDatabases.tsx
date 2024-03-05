@@ -99,6 +99,8 @@ export const StrategyEditorForDatabases = ({
 
   const [configs, setConfigs] = useState<Config[]>([]);
 
+  const [isOverridePanelVisible, setIsOverridePanelVisible] = useState(false);
+
   useEffect(() => {
     if (configsFromAPI) {
       setConfigs(configsFromAPI);
@@ -134,7 +136,9 @@ export const StrategyEditorForDatabases = ({
   const { debouncedRequest, showSuccessToast, showErrorToast } = useRequests();
 
   useEffect(() => {
-    setTargetId("root");
+    if (justShowRootStrategy) {
+      setTargetId("root");
+    }
   }, [justShowRootStrategy]);
 
   const setStrategy = useCallback(
@@ -324,56 +328,69 @@ export const StrategyEditorForDatabases = ({
           <>
             <Panel role="group" style={{ backgroundColor: color("bg-light") }}>
               <ConfigButton
-                onClick={() => {
-                  setTargetId("root");
-                }}
-                variant={targetId === "root" ? "filled" : "white"}
                 p="1rem"
                 miw="20rem"
                 fw="bold"
+                styles={{
+                  label: { flexDirection: "column", alignItems: "stretch" },
+                }}
+                onClick={() => {
+                  if (!isOverridePanelVisible) {
+                    setTargetId(null);
+                  }
+                  setIsOverridePanelVisible(isVisible => !isVisible);
+                }}
               >
-                <Flex gap="0.5rem">
+                <Flex gap="0.5rem" w="100%">
                   <Icon name="database" />
                   {t`Databases`}
                 </Flex>
                 <Chip
                   p="0.75rem 1rem"
-                  variant={targetId !== "root" ? "filled" : "white"}
+                  w="100%"
+                  variant={targetId === "root" ? "filled" : "white"}
+                  onClick={() => {
+                    setTargetId("root");
+                  }}
                 >
                   {rootStrategyLabel}
                 </Chip>
               </ConfigButton>
             </Panel>
-            <Panel role="group">
-              {databases?.map(db => (
-                <TargetSwitcher
-                  db={db}
-                  key={db.id.toString()}
-                  dbConfigs={dbConfigs}
-                  deleteDBStrategy={deleteDBStrategy}
-                  targetId={targetId}
-                  setTargetId={setTargetId}
-                />
-              ))}
-              <Button
-                onClick={() => {
-                  clearDBOverrides();
-                }}
-                disabled={dbConfigs.size === 1}
-                style={{
-                  border: "none",
-                  color:
-                    dbConfigs.size === 1 ? color("text-light") : color("error"),
-                  backgroundColor: "transparent",
-                }}
-                mt="auto"
-                ml="auto"
-              >{t`Clear all overrides`}</Button>
-            </Panel>
+            {isOverridePanelVisible && (
+              <Panel role="group">
+                {databases?.map(db => (
+                  <TargetSwitcher
+                    db={db}
+                    key={db.id.toString()}
+                    dbConfigs={dbConfigs}
+                    deleteDBStrategy={deleteDBStrategy}
+                    targetId={targetId}
+                    setTargetId={setTargetId}
+                  />
+                ))}
+                <Button
+                  onClick={() => {
+                    clearDBOverrides();
+                  }}
+                  disabled={dbConfigs.size === 1}
+                  style={{
+                    border: "none",
+                    color:
+                      dbConfigs.size === 1
+                        ? color("text-light")
+                        : color("error"),
+                    backgroundColor: "transparent",
+                  }}
+                  mt="auto"
+                  ml="auto"
+                >{t`Reset all to default`}</Button>
+              </Panel>
+            )}
           </>
         )}
-        <Panel role="group">
-          {showEditor && (
+        {showEditor && (
+          <Panel role="group">
             <Stack spacing="xl">
               <StrategySelector
                 targetId={targetId}
@@ -446,8 +463,7 @@ export const StrategyEditorForDatabases = ({
               )}
                 */}
             </Stack>
-          )}
-          {/*
+            {/*
           <StrategyConfig />
               Add later
               <section>
@@ -464,7 +480,8 @@ TODO: I'm not sure this string translates well
 <Select data={durations} />
 </section>
             */}
-        </Panel>
+          </Panel>
+        )}
       </Grid>
     </TabWrapper>
   );

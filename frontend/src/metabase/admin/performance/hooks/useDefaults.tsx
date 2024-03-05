@@ -46,18 +46,19 @@ export const useStrategyDefaults = (
   targetConfig?: Config,
 ) => {
   const [defaults, setDefaults] = useState<DefaultsMap | null>(null);
-  const { model_id: targetId, strategy: currentStrategy } = targetConfig || {};
+  const { model, model_id, strategy: currentStrategy } = targetConfig || {};
+  const targetId = model === "root" ? "root" : model_id;
 
   useEffect(() => {
     if (databases?.length && defaults === null) {
-      setDefaults(
-        new Map([
-          ...databases.map<[number, DefaultMappings]>(
-            db => [db.id, initialStrategyDefaults],
-            ["root", initialStrategyDefaults],
-          ),
+      const initialDefaultsMap = new Map<number | "root", DefaultMappings>([
+        ...databases.map<[number, DefaultMappings]>(db => [
+          db.id,
+          initialStrategyDefaults,
         ]),
-      );
+      ]);
+      initialDefaultsMap.set("root", initialStrategyDefaults);
+      setDefaults(initialDefaultsMap);
     }
   }, [databases, defaults]);
 
