@@ -2,12 +2,12 @@ import { t } from "ttag";
 import type { AnySchema } from "yup";
 
 import {
-  doNotCacheStrategyValidationSchema,
-  durationStrategyValidationSchema,
   strategyValidationSchema,
+  doNotCacheStrategyValidationSchema,
+  ttlStrategyValidationSchema,
+  durationStrategyValidationSchema,
   //queryStrategyValidationSchema,
   //scheduleStrategyValidationSchema,
-  ttlStrategyValidationSchema,
 } from "./validation";
 
 type StrategyData = {
