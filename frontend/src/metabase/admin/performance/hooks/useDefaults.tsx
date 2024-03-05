@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import type Database from "metabase-lib/metadata/Database";
 
 import type {
+  Config,
   DoNotCacheStrategy,
   DurationStrategy,
-  Strategy,
   TTLStrategy,
 } from "../types";
 
@@ -40,12 +40,13 @@ export const initialStrategyDefaults: DefaultMappings = {
   // TODO: Use better defaults
 };
 
+/** Helps set default values in the strategy editor form */
 export const useStrategyDefaults = (
   databases: Database[],
-  currentId: "root" | number | null,
-  currentStrategy: Strategy | null | undefined,
+  targetConfig?: Config,
 ) => {
   const [defaults, setDefaults] = useState<DefaultsMap | null>(null);
+  const { model_id: targetId, strategy: currentStrategy } = targetConfig || {};
 
   useEffect(() => {
     if (databases.length && defaults === null) {
@@ -61,8 +62,9 @@ export const useStrategyDefaults = (
   }, [databases, defaults]);
 
   useEffect(
+    /** Update defaults when the target's strategy changes */
     function updateDefaults() {
-      if (currentId === null || !currentStrategy) {
+      if (targetId === undefined || !currentStrategy) {
         return;
       }
       setDefaults((defaults: DefaultsMap | null) => {
@@ -70,15 +72,15 @@ export const useStrategyDefaults = (
           return defaults;
         }
         const type = currentStrategy.type;
-        const mappings = defaults.get(currentId) as DefaultMappings;
-        defaults.set(currentId, {
+        const mappings = defaults.get(targetId) as DefaultMappings;
+        defaults.set(targetId, {
           ...mappings,
           [type]: { ...mappings?.[type], ...currentStrategy },
         });
         return defaults;
       });
     },
-    [databases, currentStrategy, currentId, setDefaults],
+    [currentStrategy, targetId, databases, setDefaults],
   );
   return defaults;
 };

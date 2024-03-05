@@ -118,10 +118,11 @@ export const StrategyEditorForDatabases = ({
   const rootStrategyLabel = rootStrategy
     ? Strategies[rootStrategy?.type]?.label
     : null;
-  const currentStrategy = dbConfigs.get(targetId)?.strategy;
+  const targetConfig = dbConfigs.get(targetId);
   const currentDatabase = databases.find(db => db.id === targetId);
+  const currentStrategy = targetConfig?.strategy;
 
-  const defaults = useStrategyDefaults(databases, targetId, currentStrategy);
+  const defaults = useStrategyDefaults(databases, targetConfig);
 
   const { debouncedRequest, showSuccessToast, showErrorToast } = useRequests();
 
@@ -135,14 +136,18 @@ export const StrategyEditorForDatabases = ({
         config => config.model_id !== model_id,
       );
 
-      const oldConfig = dbConfigs.get(model_id);
+      const configBeforeChange = dbConfigs.get(model_id);
       const onSuccess = async () => {
         await showSuccessToast();
       };
       const onError = async () => {
         await showErrorToast();
         // Revert to earlier state
-        setConfigs(oldConfig ? [...otherConfigs, oldConfig] : otherConfigs);
+        setConfigs(
+          configBeforeChange
+            ? [...otherConfigs, configBeforeChange]
+            : otherConfigs,
+        );
         // FIXME: this reverts to an earlier state even if the user has already
         // changed the value again. We should revert only if there is no newer
         // change
@@ -251,7 +256,7 @@ export const StrategyEditorForDatabases = ({
     const strategyType: StrategyType | undefined =
       newStrategyValues?.type ?? currentStrategy?.type;
     const relevantDefaults =
-      targetId && strategyType ? defaults.get(targetId)?.[strategyType] : null;
+      targetId && strategyType ? defaults?.get(targetId)?.[strategyType] : null;
     const newStrategy = {
       ...relevantDefaults,
       ...newStrategyValues,
