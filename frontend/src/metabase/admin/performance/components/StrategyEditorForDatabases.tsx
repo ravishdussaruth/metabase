@@ -13,6 +13,7 @@ import { t } from "ttag";
 import { useDatabaseListQuery } from "metabase/common/hooks";
 import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper";
 import { color } from "metabase/lib/colors";
+import { PLUGIN_CACHING } from "metabase/plugins";
 import { CacheConfigApi } from "metabase/services";
 import {
   Button,
@@ -37,7 +38,7 @@ import type {
   StrategyType,
   TTLStrategy,
 } from "../types";
-import { isValidStrategy, rootConfigLabel, Strategies } from "../types";
+import { isValidStrategy, Strategies } from "../types";
 import {
   durationStrategyValidationSchema,
   ttlStrategyValidationSchema,
@@ -64,10 +65,16 @@ export const StrategyEditorForDatabases = ({
   setTabsHeight: (height: number) => void;
 }) => {
   const {
-    data: databases = [],
+    data: unfilteredDatabases = null,
     error: errorWhenLoadingDatabases,
     isLoading: areDatabasesLoading,
   } = useDatabaseListQuery();
+
+  const databases = unfilteredDatabases?.filter(
+    PLUGIN_CACHING.canConfigureDatabase,
+  );
+
+  const justShowRootStrategy = databases?.length === 0;
 
   const {
     value: configsFromAPI,
@@ -78,10 +85,11 @@ export const StrategyEditorForDatabases = ({
     loading: boolean;
     error?: any;
   } = useAsync(async () => {
-    const [rootConfigsFromAPI, dbConfigsFromAPI] = await Promise.all([
-      CacheConfigApi.list({ model: "root" }),
-      CacheConfigApi.list({ model: "database" }),
-    ]);
+    const lists = [CacheConfigApi.list({ model: "root" })];
+    if (!justShowRootStrategy) {
+      lists.push(CacheConfigApi.list({ model: "database" }));
+    }
+    const [rootConfigsFromAPI, dbConfigsFromAPI] = await Promise.all(lists);
     const configs = [
       ...(rootConfigsFromAPI?.items ?? []),
       ...(dbConfigsFromAPI?.items ?? []),
@@ -119,12 +127,15 @@ export const StrategyEditorForDatabases = ({
     ? Strategies[rootStrategy?.type]?.label
     : null;
   const targetConfig = dbConfigs.get(targetId);
-  const currentDatabase = databases.find(db => db.id === targetId);
   const currentStrategy = targetConfig?.strategy;
 
   const defaults = useStrategyDefaults(databases, targetConfig);
 
   const { debouncedRequest, showSuccessToast, showErrorToast } = useRequests();
+
+  useEffect(() => {
+    setTargetId("root");
+  }, [justShowRootStrategy]);
 
   const setStrategy = useCallback(
     (model: Model, model_id: number, newStrategy: Strategy | null) => {
@@ -301,7 +312,7 @@ export const StrategyEditorForDatabases = ({
   return (
     <TabWrapper role="region" aria-label="Data caching settings">
       <Text component="aside" lh="1rem" maw="32rem" mb="1.5rem">
-        {t`Cache the results of queries to have them display instantly. Here you can choose when cached results should be invalidated. You can set up one rule for all your databases, or apply more specific settings to each database.`}
+        {PLUGIN_CACHING.explanation}
       </Text>
       <Grid
         style={{
@@ -313,60 +324,63 @@ export const StrategyEditorForDatabases = ({
         mb="1rem"
         role="form"
       >
-        <Panel role="group" style={{ backgroundColor: color("bg-light") }}>
-          <ConfigButton
-            onClick={() => {
-              setTargetId("root");
-            }}
-            variant={targetId === "root" ? "filled" : "white"}
-            p="1rem"
-            miw="20rem"
-            fw="bold"
-          >
-            <Flex gap="0.5rem">
-              <Icon name="database" />
-              {t`Databases`}
-            </Flex>
-            <Chip
-              p="0.75rem 1rem"
-              variant={targetId !== "root" ? "filled" : "white"}
-            >
-              {rootStrategyLabel}
-            </Chip>
-          </ConfigButton>
-        </Panel>
-        <Panel role="group">
-          {databases.map(db => (
-            <TargetSwitcher
-              db={db}
-              key={db.id.toString()}
-              dbConfigs={dbConfigs}
-              deleteDBStrategy={deleteDBStrategy}
-              targetId={targetId}
-              setTargetId={setTargetId}
-            />
-          ))}
-          <Button
-            onClick={() => {
-              clearDBOverrides();
-            }}
-            disabled={dbConfigs.size === 1}
-            style={{
-              border: "none",
-              color:
-                dbConfigs.size === 1 ? color("text-light") : color("error"),
-              backgroundColor: "transparent",
-            }}
-            mt="auto"
-            ml="auto"
-          >{t`Clear all overrides`}</Button>
-        </Panel>
+        {!justShowRootStrategy && (
+          <>
+            <Panel role="group" style={{ backgroundColor: color("bg-light") }}>
+              <ConfigButton
+                onClick={() => {
+                  setTargetId("root");
+                }}
+                variant={targetId === "root" ? "filled" : "white"}
+                p="1rem"
+                miw="20rem"
+                fw="bold"
+              >
+                <Flex gap="0.5rem">
+                  <Icon name="database" />
+                  {t`Databases`}
+                </Flex>
+                <Chip
+                  p="0.75rem 1rem"
+                  variant={targetId !== "root" ? "filled" : "white"}
+                >
+                  {rootStrategyLabel}
+                </Chip>
+              </ConfigButton>
+            </Panel>
+            <Panel role="group">
+              {databases?.map(db => (
+                <TargetSwitcher
+                  db={db}
+                  key={db.id.toString()}
+                  dbConfigs={dbConfigs}
+                  deleteDBStrategy={deleteDBStrategy}
+                  targetId={targetId}
+                  setTargetId={setTargetId}
+                />
+              ))}
+              <Button
+                onClick={() => {
+                  clearDBOverrides();
+                }}
+                disabled={dbConfigs.size === 1}
+                style={{
+                  border: "none",
+                  color:
+                    dbConfigs.size === 1 ? color("text-light") : color("error"),
+                  backgroundColor: "transparent",
+                }}
+                mt="auto"
+                ml="auto"
+              >{t`Clear all overrides`}</Button>
+            </Panel>
+          </>
+        )}
         <Panel role="group">
           {showEditor && (
             <Stack spacing="xl">
               <StrategySelector
                 targetId={targetId}
-                currentDatabase={currentDatabase}
                 currentStrategy={currentStrategy}
                 rootStrategy={rootStrategy}
                 updateStrategy={updateStrategy}
@@ -530,13 +544,11 @@ export const TargetSwitcher = ({
 
 const StrategySelector = ({
   targetId,
-  currentDatabase,
   currentStrategy,
   rootStrategy,
   updateStrategy,
 }: {
   targetId: number | "root" | null;
-  currentDatabase?: Database;
   currentStrategy?: Strategy;
   rootStrategy?: Strategy;
   updateStrategy: (newStrategyValues: Record<string, string | number>) => void;
@@ -562,11 +574,6 @@ const StrategySelector = ({
 
   return (
     <section>
-      <Title order={2} mb="1rem">
-        {targetId === "root"
-          ? rootConfigLabel
-          : currentDatabase?.name.trim() || "Untitled database"}
-      </Title>
       <Radio.Group
         value={inferredStrategyType}
         name={`caching-strategy-for-${

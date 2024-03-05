@@ -1,3 +1,5 @@
+import { t } from "ttag";
+
 import { PLUGIN_CACHING, PLUGIN_FORM_WIDGETS } from "metabase/plugins";
 import { hasPremiumFeature } from "metabase-enterprise/settings";
 
@@ -31,4 +33,8 @@ if (hasPremiumFeature("cache_granular_controls")) {
   PLUGIN_CACHING.QuestionCacheSection = QuestionCacheSection;
   PLUGIN_CACHING.isEnabled = () => true;
   PLUGIN_CACHING.hasQuestionCacheSection = hasQuestionCacheSection;
+
+  PLUGIN_CACHING.canConfigureDatabase = () => true;
+  PLUGIN_CACHING.showAd = false;
+  PLUGIN_CACHING.explanation = t`Cache the results of queries to have them display instantly. Here you can choose when cached results should be invalidated. You can set up one rule for all your databases, or apply more specific settings to each database.`;
 }

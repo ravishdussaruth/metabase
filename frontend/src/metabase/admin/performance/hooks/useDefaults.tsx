@@ -42,14 +42,14 @@ export const initialStrategyDefaults: DefaultMappings = {
 
 /** Helps set default values in the strategy editor form */
 export const useStrategyDefaults = (
-  databases: Database[],
+  databases?: Database[],
   targetConfig?: Config,
 ) => {
   const [defaults, setDefaults] = useState<DefaultsMap | null>(null);
   const { model_id: targetId, strategy: currentStrategy } = targetConfig || {};
 
   useEffect(() => {
-    if (databases.length && defaults === null) {
+    if (databases?.length && defaults === null) {
       setDefaults(
         new Map([
           ...databases.map<[number, DefaultMappings]>(

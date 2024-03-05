@@ -329,20 +329,20 @@
   :audit   :getter)
 
 ;; TODO -- this isn't really a TTL at all. Consider renaming to something like `-min-duration`
-(defsetting query-caching-min-ttl
-  (deferred-tru "{0} will cache all saved questions with an average query execution time longer than this many seconds:"
-                 (application-name-for-setting-descriptions))
-  :type    :double
-  :default 60.0
-  :audit   :getter)
-
 (defsetting query-caching-ttl-ratio
-  (deferred-tru
+ (deferred-tru
    (str "To determine how long each saved question''s cached result should stick around, we take the query''s average "
         "execution time and multiply that by whatever you input here. So if a query takes on average 2 minutes to run, "
         "and you input 10 for your multiplier, its cache entry will persist for 20 minutes."))
   :type    :integer
   :default 10
+  :audit   :getter)
+
+(defsetting query-caching-min-ttl
+  (deferred-tru "{0} will cache all saved questions with an average query execution time longer than this many seconds:"
+                 (application-name-for-setting-descriptions))
+  :type    :double
+  :default 60.0
   :audit   :getter)
 
 (defsetting notification-link-base-url
