@@ -219,7 +219,7 @@ export const StrategyEditorForDatabases = ({
     };
     debouncedRequest(
       CacheConfigApi.delete,
-      { model: "database", model_id: ids },
+      { model_id: ids, model: "database" },
       { hasBody: true },
       onSuccess,
       onError,
@@ -245,13 +245,7 @@ export const StrategyEditorForDatabases = ({
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, [
-    tabsRef,
-    setTabsHeight,
-    areDatabasesLoading,
-    areConfigsLoading,
-    areConfigsLoading,
-  ]);
+  }, [tabsRef, setTabsHeight, areDatabasesLoading, areConfigsLoading]);
 
   useEffect(
     /**
