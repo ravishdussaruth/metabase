@@ -26,8 +26,8 @@ import {
 } from "metabase/ui";
 import type Database from "metabase-lib/metadata/Database";
 
-import { useCacheAdminRequests } from "../hooks/requests";
 import { useStrategyDefaults } from "../hooks/useDefaults";
+import { useRequests } from "../hooks/useRequests";
 import type {
   Config,
   DurationStrategy,
@@ -74,7 +74,7 @@ export const StrategyEditorForDatabases = ({
     loading: areConfigsLoading,
     error: errorWhenLoadingConfigs,
   }: {
-    value?: unknown[];
+    value?: Config[];
     loading: boolean;
     error?: any;
   } = useAsync(async () => {
@@ -93,7 +93,7 @@ export const StrategyEditorForDatabases = ({
 
   useEffect(() => {
     if (configsFromAPI) {
-      setConfigs(configsFromAPI as Config[]);
+      setConfigs(configsFromAPI);
     }
   }, [configsFromAPI]);
 
@@ -121,8 +121,9 @@ export const StrategyEditorForDatabases = ({
   const currentStrategy = dbConfigs.get(targetId)?.strategy;
   const currentDatabase = databases.find(db => db.id === targetId);
 
-  const { debouncedRequest, showSuccessToast, showErrorToast } =
-    useCacheAdminRequests();
+  const defaults = useStrategyDefaults(databases, targetId, currentStrategy);
+
+  const { debouncedRequest, showSuccessToast, showErrorToast } = useRequests();
 
   const setStrategy = useCallback(
     (model: Model, model_id: number, newStrategy: Strategy | null) => {
@@ -245,8 +246,6 @@ export const StrategyEditorForDatabases = ({
     },
     [],
   );
-
-  const defaults = useStrategyDefaults(databases, targetId, currentStrategy);
 
   const updateStrategy = (newStrategyValues: Partial<Strategy> | null) => {
     const strategyType: StrategyType | undefined =
@@ -538,13 +537,14 @@ const StrategySelector = ({
   const radioButtonMapRef = useRef<Map<string | null, HTMLInputElement>>(
     new Map(),
   );
+  const radioButtonMap = radioButtonMapRef.current;
 
   const inferredStrategyType = currentStrategy?.type ?? rootStrategy?.type;
 
   useEffect(
     () => {
       if (inferredStrategyType) {
-        radioButtonMapRef.current?.get(inferredStrategyType)?.focus();
+        radioButtonMap.get(inferredStrategyType)?.focus();
       }
     },
     // We only want to focus the radio button when the targetId changes,
@@ -576,7 +576,7 @@ const StrategySelector = ({
           {Object.entries(Strategies).map(([name, { label }]) => (
             <Radio
               ref={(el: HTMLInputElement) => {
-                radioButtonMapRef.current.set(name, el);
+                radioButtonMap.set(name, el);
               }}
               value={name}
               key={name}

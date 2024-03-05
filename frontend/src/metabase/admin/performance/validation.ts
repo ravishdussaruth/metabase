@@ -9,20 +9,18 @@ const positiveInteger = Yup.number()
   .positive(t`The minimum query duration must be a positive number.`)
   .integer(t`The minimum query duration must be an integer.`);
 
-const requiredPositiveInteger = positiveInteger.required(t`Required field`);
-
 export const isValidPositiveInteger = (value: unknown) =>
   positiveInteger.isValidSync(value);
 
 export const doNotCacheStrategyValidationSchema = Yup.object({});
 
 export const ttlStrategyValidationSchema = Yup.object({
-  min_duration: requiredPositiveInteger,
-  multiplier: requiredPositiveInteger,
+  min_duration: positiveInteger.required(t`Required field: min_duration`),
+  multiplier: positiveInteger.required(t`Required field: multiplier`),
 });
 
 export const durationStrategyValidationSchema = Yup.object({
-  duration: requiredPositiveInteger,
+  duration: positiveInteger.required(t`Required field: duration`),
   unit: Yup.string().matches(unitOfTimeRegex),
 });
 

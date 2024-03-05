@@ -45,26 +45,30 @@ export const useStrategyDefaults = (
   currentId: "root" | number | null,
   currentStrategy: Strategy | null | undefined,
 ) => {
-  const [defaults, setDefaults] = useState<DefaultsMap>(
-    () =>
-      new Map(
-        databases.map<[number, DefaultMappings]>(db => [
-          db.id,
-          initialStrategyDefaults,
-        ]),
-      ),
-  );
+  const [defaults, setDefaults] = useState<DefaultsMap | null>(null);
 
-  if (!defaults.has("root")) {
-    defaults.set("root", initialStrategyDefaults);
-  }
+  useEffect(() => {
+    if (databases.length && defaults === null) {
+      setDefaults(
+        new Map([
+          ...databases.map<[number, DefaultMappings]>(
+            db => [db.id, initialStrategyDefaults],
+            ["root", initialStrategyDefaults],
+          ),
+        ]),
+      );
+    }
+  }, [databases, defaults]);
 
   useEffect(
     function updateDefaults() {
       if (currentId === null || !currentStrategy) {
         return;
       }
-      setDefaults((defaults: DefaultsMap) => {
+      setDefaults((defaults: DefaultsMap | null) => {
+        if (!defaults) {
+          return defaults;
+        }
         const type = currentStrategy.type;
         const mappings = defaults.get(currentId) as DefaultMappings;
         defaults.set(currentId, {
@@ -74,8 +78,7 @@ export const useStrategyDefaults = (
         return defaults;
       });
     },
-    [currentStrategy, currentId, setDefaults],
+    [databases, currentStrategy, currentId, setDefaults],
   );
-
   return defaults;
 };

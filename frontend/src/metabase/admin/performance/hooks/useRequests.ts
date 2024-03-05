@@ -5,7 +5,7 @@ import { color } from "metabase/lib/colors";
 import { useDispatch } from "metabase/lib/redux";
 import { addUndo } from "metabase/redux/undo";
 
-export const useCacheAdminRequests = () => {
+export const useRequests = () => {
   const dispatch = useDispatch();
 
   const showSuccessToast = useCallback(async () => {
