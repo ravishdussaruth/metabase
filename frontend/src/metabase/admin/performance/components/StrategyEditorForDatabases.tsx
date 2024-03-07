@@ -1,4 +1,4 @@
-import type { Dispatch, MouseEvent, SetStateAction } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import {
   useCallback,
   useEffect,
@@ -15,16 +15,7 @@ import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper";
 import { color } from "metabase/lib/colors";
 import { PLUGIN_CACHING } from "metabase/plugins";
 import { CacheConfigApi } from "metabase/services";
-import {
-  Button,
-  Flex,
-  Grid,
-  Icon,
-  Radio,
-  Stack,
-  Text,
-  Title,
-} from "metabase/ui";
+import { Box, Flex, Grid, Icon, Radio, Stack, Text, Title } from "metabase/ui";
 import type Database from "metabase-lib/metadata/Database";
 
 import { useStrategyDefaults } from "../hooks/useDefaults";
@@ -74,7 +65,7 @@ export const StrategyEditorForDatabases = ({
     PLUGIN_CACHING.canConfigureDatabase,
   );
 
-  const justShowRootStrategy = databases?.length === 0;
+  const canOnlyConfigureRootStrategy = databases?.length === 0;
 
   const {
     value: configsFromAPI,
@@ -86,7 +77,7 @@ export const StrategyEditorForDatabases = ({
     error?: any;
   } = useAsync(async () => {
     const lists = [CacheConfigApi.list({ model: "root" })];
-    if (!justShowRootStrategy) {
+    if (!canOnlyConfigureRootStrategy) {
       lists.push(CacheConfigApi.list({ model: "database" }));
     }
     const [rootConfigsFromAPI, dbConfigsFromAPI] = await Promise.all(lists);
@@ -136,10 +127,10 @@ export const StrategyEditorForDatabases = ({
   const { debouncedRequest, showSuccessToast, showErrorToast } = useRequests();
 
   useEffect(() => {
-    if (justShowRootStrategy) {
+    if (canOnlyConfigureRootStrategy) {
       setTargetId("root");
     }
-  }, [justShowRootStrategy]);
+  }, [canOnlyConfigureRootStrategy]);
 
   const setStrategy = useCallback(
     (model: Model, model_id: number, newStrategy: Strategy | null) => {
@@ -199,36 +190,6 @@ export const StrategyEditorForDatabases = ({
     setStrategy("root", 0, newStrategy);
   const setDBStrategy = (databaseId: number, newStrategy: Strategy | null) =>
     setStrategy("database", databaseId, newStrategy);
-  const deleteDBStrategy = (databaseId: number) =>
-    setDBStrategy(databaseId, null);
-
-  const clearDBOverrides = useCallback(() => {
-    setConfigs(configs => configs.filter(({ model }) => model !== "database"));
-
-    const ids = configs.reduce<number[]>(
-      (acc, config) =>
-        config.model === "database" ? [...acc, config.model_id] : acc,
-      [],
-    );
-
-    if (!ids.length) {
-      return;
-    }
-    const onSuccess = async () => {
-      await showSuccessToast();
-    };
-    const onError = async () => {
-      await showErrorToast();
-      // TODO: Revert to earlier state?
-    };
-    debouncedRequest(
-      CacheConfigApi.delete,
-      { model_id: ids, model: "database" },
-      { hasBody: true },
-      onSuccess,
-      onError,
-    );
-  }, [configs, debouncedRequest, showErrorToast, showSuccessToast]);
 
   const [showLoadingSpinner, setShowLoadingSpinner] = useState(false);
 
@@ -324,7 +285,7 @@ export const StrategyEditorForDatabases = ({
         mb="1rem"
         role="form"
       >
-        {!justShowRootStrategy && (
+        {!canOnlyConfigureRootStrategy && (
           <>
             <Panel role="group" style={{ backgroundColor: color("bg-light") }}>
               <ConfigButton
@@ -357,36 +318,18 @@ export const StrategyEditorForDatabases = ({
                 </Chip>
               </ConfigButton>
             </Panel>
-            {isOverridePanelVisible && (
-              <Panel role="group">
-                {databases?.map(db => (
-                  <TargetSwitcher
+            <Panel role="group">
+              {isOverridePanelVisible &&
+                databases?.map(db => (
+                  <DatabaseWidget
                     db={db}
                     key={db.id.toString()}
                     dbConfigs={dbConfigs}
-                    deleteDBStrategy={deleteDBStrategy}
                     targetId={targetId}
                     setTargetId={setTargetId}
                   />
                 ))}
-                <Button
-                  onClick={() => {
-                    clearDBOverrides();
-                  }}
-                  disabled={dbConfigs.size === 1}
-                  style={{
-                    border: "none",
-                    color:
-                      dbConfigs.size === 1
-                        ? color("text-light")
-                        : color("error"),
-                    backgroundColor: "transparent",
-                  }}
-                  mt="auto"
-                  ml="auto"
-                >{t`Reset all to default`}</Button>
-              </Panel>
-            )}
+            </Panel>
           </>
         )}
         {showEditor && (
@@ -487,19 +430,16 @@ TODO: I'm not sure this string translates well
   );
 };
 
-/** Button that changes the target, i.e., which thing's cache invalidation strategy is being edited */
-export const TargetSwitcher = ({
+export const DatabaseWidget = ({
   db,
   dbConfigs,
   targetId,
   setTargetId,
-  deleteDBStrategy,
 }: {
   db: Database;
   targetId: number | "root" | null;
   dbConfigs: GetConfigByModelId;
   setTargetId: Dispatch<SetStateAction<number | "root" | null>>;
-  deleteDBStrategy: (databaseId: number) => void;
 }) => {
   const dbConfig = dbConfigs.get(db.id);
   const rootStrategy = dbConfigs.get("root")?.strategy;
@@ -511,47 +451,24 @@ export const TargetSwitcher = ({
   }
   const strategyLabel = Strategies[strategyForDB.type]?.label;
   const isBeingEdited = targetId === db.id;
-  const clearOverride = () => {
-    deleteDBStrategy(db.id);
-  };
   return (
-    <ConfigButton
-      onClick={() => {
-        setTargetId(db.id);
-      }}
-      variant={isBeingEdited ? "filled" : "white"}
-      w="100%"
-      fw="bold"
-      mb="1rem"
-      p="1rem"
-      miw="20rem"
-    >
+    <Box w="100%" fw="bold" mb="1rem" p="1rem" miw="20rem">
       <Flex gap="0.5rem">
         <Icon name="database" />
         {db.name}
       </Flex>
       <Chip
         configIsBeingEdited={isBeingEdited}
-        onClick={(e: MouseEvent<HTMLButtonElement>) => {
-          if (!followsRootStrategy) {
-            clearOverride();
-            e.stopPropagation();
-          }
+        onClick={() => {
+          setTargetId(db.id);
         }}
-        variant={followsRootStrategy || isBeingEdited ? "white" : "filled"}
+        variant={isBeingEdited ? "filled" : "white"}
         ml="auto"
         p="0.75rem 1rem"
       >
-        {followsRootStrategy ? (
-          t`Use default`
-        ) : (
-          <>
-            {strategyLabel}
-            <Icon name="close" />
-          </>
-        )}
+        {followsRootStrategy ? t`Use default` : strategyLabel}
       </Chip>
-    </ConfigButton>
+    </Box>
   );
 };
 
