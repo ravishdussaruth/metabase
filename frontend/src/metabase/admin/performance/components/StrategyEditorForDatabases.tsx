@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { useAsync } from "react-use";
-import { t } from "ttag";
+import { c, t } from "ttag";
 
 import { useDatabaseListQuery } from "metabase/common/hooks";
 import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper";
@@ -29,7 +29,12 @@ import type {
   StrategyType,
   TTLStrategy,
 } from "../types";
-import { isValidStrategy, Strategies } from "../types";
+import {
+  getShortStrategyLabel,
+  getStrategyLabel,
+  isValidStrategy,
+  Strategies,
+} from "../types";
 import {
   durationStrategyValidationSchema,
   ttlStrategyValidationSchema,
@@ -116,9 +121,6 @@ export const StrategyEditorForDatabases = ({
   /** Id of the database currently being edited, or 'root' for the root strategy */
   const [targetId, setTargetId] = useState<number | "root" | null>(null);
   const rootStrategy = dbConfigs.get("root")?.strategy;
-  const rootStrategyLabel = rootStrategy
-    ? Strategies[rootStrategy?.type]?.label
-    : null;
   const targetConfig = dbConfigs.get(targetId);
   const currentStrategy = targetConfig?.strategy;
 
@@ -292,6 +294,7 @@ export const StrategyEditorForDatabases = ({
                 p="1rem"
                 miw="20rem"
                 fw="bold"
+                mb=".5rem"
                 styles={{
                   label: { flexDirection: "column", alignItems: "stretch" },
                 }}
@@ -306,17 +309,18 @@ export const StrategyEditorForDatabases = ({
                   <Icon name="database" />
                   {t`Databases`}
                 </Flex>
-                <Chip
-                  p="0.75rem 1rem"
-                  w="100%"
-                  variant={targetId === "root" ? "filled" : "white"}
-                  onClick={() => {
-                    setTargetId("root");
-                  }}
-                >
-                  {rootStrategyLabel}
-                </Chip>
               </ConfigButton>
+              <Chip
+                p="0.75rem 1rem"
+                w="100%"
+                variant={targetId === "root" ? "filled" : "white"}
+                onClick={() => {
+                  setTargetId("root");
+                  setIsOverridePanelVisible(false);
+                }}
+              >
+                {getStrategyLabel(rootStrategy)}
+              </Chip>
             </Panel>
             <Panel role="group">
               {isOverridePanelVisible &&
@@ -444,30 +448,40 @@ export const DatabaseWidget = ({
   const dbConfig = dbConfigs.get(db.id);
   const rootStrategy = dbConfigs.get("root")?.strategy;
   const savedDBStrategy = dbConfig?.strategy;
-  const followsRootStrategy = savedDBStrategy === undefined;
+  const inheritsRootStrategy = savedDBStrategy === undefined;
   const strategyForDB = savedDBStrategy ?? rootStrategy;
   if (!strategyForDB) {
     throw new Error(t`Invalid strategy "${JSON.stringify(strategyForDB)}"`);
   }
-  const strategyLabel = Strategies[strategyForDB.type]?.label;
   const isBeingEdited = targetId === db.id;
   return (
     <Box w="100%" fw="bold" mb="1rem" p="1rem" miw="20rem">
-      <Flex gap="0.5rem">
-        <Icon name="database" />
-        {db.name}
-      </Flex>
-      <Chip
-        configIsBeingEdited={isBeingEdited}
-        onClick={() => {
-          setTargetId(db.id);
-        }}
-        variant={isBeingEdited ? "filled" : "white"}
-        ml="auto"
-        p="0.75rem 1rem"
-      >
-        {followsRootStrategy ? t`Use default` : strategyLabel}
-      </Chip>
+      <Stack spacing="md">
+        <Flex gap="0.5rem">
+          <Icon name="database" />
+          {db.name}
+        </Flex>
+        <Chip
+          configIsBeingEdited={isBeingEdited}
+          onClick={() => {
+            setTargetId(db.id);
+          }}
+          variant={isBeingEdited ? "filled" : "white"}
+          ml="auto"
+          w="100%"
+          p="0.75rem 1rem"
+        >
+          {inheritsRootStrategy
+            ? c(
+                "This label indicates that a database inherits its behavior from something else",
+              ).jt`Inherit:${(
+                <Box opacity={0.6}>
+                  &nbsp;{getShortStrategyLabel(rootStrategy)}
+                </Box>
+              )}`
+            : getShortStrategyLabel(strategyForDB)}
+        </Chip>
+      </Stack>
     </Box>
   );
 };

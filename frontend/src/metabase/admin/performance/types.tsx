@@ -1,4 +1,4 @@
-import { t } from "ttag";
+import { c, t } from "ttag";
 import type { AnySchema } from "yup";
 
 import {
@@ -12,6 +12,7 @@ import {
 
 type StrategyData = {
   label: string;
+  shortLabel?: string;
   validateWith: AnySchema;
 };
 
@@ -22,15 +23,16 @@ export type StrategyType = "nocache" | "ttl" | "duration";
 /** Cache invalidation strategies and related metadata */
 export const Strategies: Record<StrategyType, StrategyData> = {
   nocache: {
-    label: t`Don't cache`,
+    label: t`Don't cache results`,
     validateWith: doNotCacheStrategyValidationSchema,
   },
   ttl: {
-    label: t`When the TTL expires`,
+    label: t`When the time-to-live (TTL) expires`,
+    shortLabel: c("'TTL' is short for 'time-to-live'").t`TTL expiration`,
     validateWith: ttlStrategyValidationSchema,
   },
   duration: {
-    label: t`On a regular duration`,
+    label: t`After a specific number of hours`,
     validateWith: durationStrategyValidationSchema,
   },
   // TODO: Add these in later
@@ -42,6 +44,18 @@ export const Strategies: Record<StrategyType, StrategyData> = {
   //   label: t`When the data updates`,
   //   validateWith: queryStrategyValidationSchema,
   // },
+};
+
+export const getStrategyLabel = (strategy?: Strategy) => {
+  return strategy ? Strategies[strategy.type].label : null;
+};
+
+export const getShortStrategyLabel = (strategy?: Strategy) => {
+  if (!strategy) {
+    return null;
+  }
+  const type = Strategies[strategy.type];
+  return type.shortLabel ?? type.label;
 };
 
 export const isValidStrategyName = (
