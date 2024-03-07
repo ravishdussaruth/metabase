@@ -406,5 +406,7 @@
       "./bin/whitespace_lint_staged.sh"
     ]
   },
-  "browserslist": ["defaults"]
+  "browserslist": [
+    "defaults"
+  ]
 }
