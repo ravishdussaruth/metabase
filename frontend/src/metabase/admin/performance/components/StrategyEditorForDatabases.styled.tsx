@@ -63,7 +63,7 @@ export const Chip = styled(ConfigButton, {
       ? `border-color: ${color("white")} ! important;`
       : ""}
   & span {
-    gap: unset;
+    gap: 0.5rem;
   }
 `;
 

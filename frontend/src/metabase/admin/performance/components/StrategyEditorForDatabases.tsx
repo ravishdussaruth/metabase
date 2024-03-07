@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useAsync } from "react-use";
 import { c, t } from "ttag";
+import _ from "underscore";
 
 import { useDatabaseListQuery } from "metabase/common/hooks";
 import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper";
@@ -231,16 +232,22 @@ export const StrategyEditorForDatabases = ({
       newStrategyValues?.type ?? currentStrategy?.type;
     const relevantDefaults =
       targetId && strategyType ? defaults?.get(targetId)?.[strategyType] : null;
-    const newStrategy = {
-      ...relevantDefaults,
-      ...newStrategyValues,
-    };
-    if (!isValidStrategy(newStrategy)) {
+    const newStrategy = newStrategyValues
+      ? {
+          ...relevantDefaults,
+          ...newStrategyValues,
+        }
+      : null;
+    if (newStrategy !== null && !isValidStrategy(newStrategy)) {
       console.error(`Invalid strategy: ${JSON.stringify(newStrategy)}`);
       return;
     }
     if (targetId === "root") {
-      setRootStrategy(newStrategy);
+      if (newStrategy === null) {
+        console.error("Cannot delete root strategy");
+      } else {
+        setRootStrategy(newStrategy);
+      }
     } else if (targetId !== null) {
       setDBStrategy(targetId, newStrategy);
     } else {
@@ -342,7 +349,6 @@ export const StrategyEditorForDatabases = ({
               <StrategySelector
                 targetId={targetId}
                 currentStrategy={currentStrategy}
-                rootStrategy={rootStrategy}
                 updateStrategy={updateStrategy}
               />
               {currentStrategy?.type === "ttl" && (
@@ -475,9 +481,7 @@ export const DatabaseWidget = ({
             ? c(
                 "This label indicates that a database inherits its behavior from something else",
               ).jt`Inherit:${(
-                <Box opacity={0.6}>
-                  &nbsp;{getShortStrategyLabel(rootStrategy)}
-                </Box>
+                <Box opacity={0.6}>{getShortStrategyLabel(rootStrategy)}</Box>
               )}`
             : getShortStrategyLabel(strategyForDB)}
         </Chip>
@@ -489,25 +493,24 @@ export const DatabaseWidget = ({
 const StrategySelector = ({
   targetId,
   currentStrategy,
-  rootStrategy,
   updateStrategy,
 }: {
   targetId: number | "root" | null;
   currentStrategy?: Strategy;
-  rootStrategy?: Strategy;
-  updateStrategy: (newStrategyValues: Record<string, string | number>) => void;
+  updateStrategy: (
+    newStrategyValues: Record<string, string | number> | null,
+  ) => void;
 }) => {
   const radioButtonMapRef = useRef<Map<string | null, HTMLInputElement>>(
     new Map(),
   );
   const radioButtonMap = radioButtonMapRef.current;
-
-  const inferredStrategyType = currentStrategy?.type ?? rootStrategy?.type;
+  const currentStrategyType = currentStrategy?.type ?? "inherit";
 
   useEffect(
     () => {
-      if (inferredStrategyType) {
-        radioButtonMap.get(inferredStrategyType)?.focus();
+      if (currentStrategyType) {
+        radioButtonMap.get(currentStrategyType)?.focus();
       }
     },
     // We only want to focus the radio button when the targetId changes,
@@ -516,29 +519,38 @@ const StrategySelector = ({
     [targetId],
   );
 
+  const options = {
+    ...Strategies,
+    inherit: { label: "Inherit" },
+  };
+
   return (
     <section>
       <Radio.Group
-        value={inferredStrategyType}
+        value={currentStrategyType}
         name={`caching-strategy-for-${
           targetId === "root" ? "root" : `database-${targetId}`
         }`}
-        onChange={strategyType => {
-          updateStrategy({ type: strategyType });
+        onChange={optionName => {
+          updateStrategy(
+            optionName === "inherit"
+              ? null // delete strategy
+              : { type: optionName },
+          );
         }}
         label={
           <Text lh="1rem">{t`When should cached query results be invalidated?`}</Text>
         }
       >
         <Stack mt="md" spacing="md">
-          {Object.entries(Strategies).map(([name, { label }]) => (
+          {_.map(options, (option, name) => (
             <Radio
               ref={(el: HTMLInputElement) => {
                 radioButtonMap.set(name, el);
               }}
               value={name}
               key={name}
-              label={label}
+              label={option.label}
             />
           ))}
         </Stack>
