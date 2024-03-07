@@ -13,7 +13,7 @@ import _ from "underscore";
 
 import { useDatabaseListQuery } from "metabase/common/hooks";
 import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper";
-import { Form, FormProvider } from "metabase/forms";
+import { Form, FormProvider, FormSubmitButton } from "metabase/forms";
 import { color } from "metabase/lib/colors";
 import { PLUGIN_CACHING } from "metabase/plugins";
 import { CacheConfigApi } from "metabase/services";
@@ -251,6 +251,7 @@ export const StrategyEditorForDatabases = ({
   const showEditor = targetId !== null;
 
   const handleFormSubmit = (values: Partial<Strategy>) => {
+    console.log('values', values);
     updateStrategy({ ...currentStrategy, ...values });
   };
 
@@ -386,6 +387,7 @@ export const StrategyEditorForDatabases = ({
                   </section>
               )}
                 */}
+                <FormSubmitButton />
                 </Stack>
               </Form>
             </FormProvider>
