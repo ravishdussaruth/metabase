@@ -1,59 +1,11 @@
-import type { AnySchema } from "yup";
-
 // import CronExpressionInput from "metabase/admin/settings/components/widgets/ModelCachingScheduleWidget/CronExpressionInput";
-import { Form, FormProvider, FormTextInput } from "metabase/forms";
-import { Stack } from "metabase/ui";
+import { FormTextInput } from "metabase/forms";
 
-import type { Strategy, TTLStrategy } from "../types";
-
-export const ConfigureSelectedStrategy = <T extends Strategy>({
-  currentStrategy,
-  updateStrategy,
-  validationSchema,
-  children,
-}: {
-  currentStrategy: T;
-  validationSchema: AnySchema;
-  updateStrategy: (newStrategyValues: Record<string, string | number>) => void;
-  children: React.ReactNode;
-}) => {
-  const handleSubmit = (values: Partial<T>) => {
-    // TODO: check that validation at this point makes sense
-    // importantly this means we do not save invalid data as a default value for any field
-    if (validationSchema.isValidSync(currentStrategy)) {
-      updateStrategy({ ...currentStrategy, ...values });
-    }
-  };
-  return (
-    <FormProvider
-      initialValues={currentStrategy}
-      validationSchema={validationSchema}
-      onSubmit={handleSubmit}
-      enableReinitialize
-    >
-      <Form onSubmit={e => e.preventDefault()}>
-        <Stack spacing="xl">{children}</Stack>
-      </Form>
-    </FormProvider>
-  );
-};
-
-export const PositiveNumberInput = ({
-  fieldName,
-  handleSubmit,
-}: {
-  fieldName: string;
-  handleSubmit: (values: Partial<TTLStrategy>) => void;
-}) => {
-  // NOTE: Known tiny bug: on Firefox, if you type invalid input, the error
+export const PositiveNumberInput = ({ fieldName }: { fieldName: string }) => {
+  // NOTE: Known bug: on Firefox, if you type invalid input, the error
   // message will be "Required field" instead of "must be a positive number".
   return (
     <FormTextInput
-      onChange={e => {
-        handleSubmit({
-          [fieldName]: Number(e.target.value.trim() || null),
-        });
-      }}
       name={fieldName}
       type="number"
       min={1}

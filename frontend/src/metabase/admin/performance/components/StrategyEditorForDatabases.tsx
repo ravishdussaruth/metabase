@@ -13,6 +13,7 @@ import _ from "underscore";
 
 import { useDatabaseListQuery } from "metabase/common/hooks";
 import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper";
+import { Form, FormProvider } from "metabase/forms";
 import { color } from "metabase/lib/colors";
 import { PLUGIN_CACHING } from "metabase/plugins";
 import { CacheConfigApi } from "metabase/services";
@@ -23,12 +24,10 @@ import { useStrategyDefaults } from "../hooks/useDefaults";
 import { useRequests } from "../hooks/useRequests";
 import type {
   Config,
-  DurationStrategy,
   GetConfigByModelId,
   Model,
   Strategy,
   StrategyType,
-  TTLStrategy,
 } from "../types";
 import {
   getShortStrategyLabel,
@@ -36,15 +35,9 @@ import {
   isValidStrategy,
   Strategies,
 } from "../types";
-import {
-  durationStrategyValidationSchema,
-  ttlStrategyValidationSchema,
-} from "../validation";
+import { strategyValidationSchema } from "../validation";
 
-import {
-  ConfigureSelectedStrategy,
-  PositiveNumberInput,
-} from "./ConfigureSelectedStrategy";
+import { PositiveNumberInput } from "./ConfigureSelectedStrategy";
 import {
   Chip,
   ConfigButton,
@@ -278,7 +271,6 @@ export const StrategyEditorForDatabases = ({
       />
     ) : null;
   }
-
   return (
     <TabWrapper role="region" aria-label="Data caching settings">
       <Text component="aside" lh="1rem" maw="32rem" mb="1.5rem">
@@ -292,7 +284,6 @@ export const StrategyEditorForDatabases = ({
         }}
         w="100%"
         mb="1rem"
-        role="form"
       >
         {!canOnlyConfigureRootStrategy && (
           <>
@@ -344,78 +335,60 @@ export const StrategyEditorForDatabases = ({
           </>
         )}
         {showEditor && (
-          <Panel role="group">
-            <Stack spacing="xl">
-              <StrategySelector
-                targetId={targetId}
-                currentStrategy={currentStrategy}
-                updateStrategy={updateStrategy}
-              />
-              {currentStrategy?.type === "ttl" && (
-                <ConfigureSelectedStrategy<TTLStrategy>
-                  updateStrategy={updateStrategy}
-                  currentStrategy={currentStrategy}
-                  validationSchema={ttlStrategyValidationSchema}
-                >
-                  <section>
-                    <Title order={3}>{t`Minimum query duration`}</Title>
-                    <p>
-                      {t`Metabase will cache all saved questions with an average query execution time longer than this many seconds:`}
-                    </p>
-                    <PositiveNumberInput
-                      fieldName="min_duration"
-                      handleSubmit={handleFormSubmit}
-                    />
-                  </section>
-                  <section>
-                    <Title
-                      order={3}
-                    >{t`Cache time-to-live (TTL) multiplier`}</Title>
-                    <p>
-                      {t`To determine how long each saved question's cached result should stick around, we take the query's average execution time and multiply that by whatever you input here. So if a query takes on average 2 minutes to run, and you input 10 for your multiplier, its cache entry will persist for 20 minutes.`}
-                    </p>
-                    <PositiveNumberInput
-                      fieldName="multiplier"
-                      handleSubmit={handleFormSubmit}
-                    />
-                  </section>
-                </ConfigureSelectedStrategy>
-              )}
-              {currentStrategy?.type === "duration" && (
-                <ConfigureSelectedStrategy<DurationStrategy>
-                  updateStrategy={updateStrategy}
-                  currentStrategy={currentStrategy}
-                  validationSchema={durationStrategyValidationSchema}
-                >
-                  <section>
-                    <Title order={3}>{t`Duration`}</Title>
-                    <p>{t`(explanation goes here)`}</p>
-                    <PositiveNumberInput
-                      fieldName="duration"
-                      handleSubmit={handleFormSubmit}
-                    />
-                  </section>
-                </ConfigureSelectedStrategy>
-              )}
-              {/*
+          <Panel>
+            <FormProvider<Strategy>
+              initialValues={currentStrategy as Strategy}
+              validationSchema={strategyValidationSchema}
+              onSubmit={handleFormSubmit}
+              enableReinitialize
+            >
+              <Form>
+                <Stack spacing="xl">
+                  <StrategySelector
+                    targetId={targetId}
+                    currentStrategy={currentStrategy}
+                  />
+                  {currentStrategy?.type === "ttl" && (
+                    <>
+                      <section>
+                        <Title order={3}>{t`Minimum query duration`}</Title>
+                        <p>
+                          {t`Metabase will cache all saved questions with an average query execution time longer than this many seconds:`}
+                        </p>
+                        <PositiveNumberInput fieldName="min_duration" />
+                      </section>
+                      <section>
+                        <Title
+                          order={3}
+                        >{t`Cache time-to-live (TTL) multiplier`}</Title>
+                        <p>
+                          {t`To determine how long each saved question's cached result should stick around, we take the query's average execution time and multiply that by whatever you input here. So if a query takes on average 2 minutes to run, and you input 10 for your multiplier, its cache entry will persist for 20 minutes.`}
+                        </p>
+                        <PositiveNumberInput fieldName="multiplier" />
+                      </section>
+                    </>
+                  )}
+                  {currentStrategy?.type === "duration" && (
+                    <section>
+                      <Title order={3}>{t`Duration`}</Title>
+                      <p>{t`(explanation goes here)`}</p>
+                      <PositiveNumberInput fieldName="duration" />
+                    </section>
+                  )}
+                  {/*
               {currentStrategy?.type === "schedule" && (
-                <ConfigureSelectedStrategy<ScheduleStrategy>
-                  updateStrategy={updateStrategy}
-                  currentStrategy={currentStrategy}
-                  validationSchema={scheduleStrategyValidationSchema}
-                >
                   <section>
                     <Title order={3}>{t`Schedule`}</Title>
                     <p>{t`(explanation goes here)`}</p>
                     <CronInput
                       initialValue={currentStrategy.schedule}
-                      handleSubmit={handleFormSubmit}
                     />
                   </section>
-                </ConfigureSelectedStrategy>
               )}
                 */}
-            </Stack>
+                </Stack>
+              </Form>
+            </FormProvider>
             {/*
           <StrategyConfig />
               Add later
@@ -493,13 +466,9 @@ export const DatabaseWidget = ({
 const StrategySelector = ({
   targetId,
   currentStrategy,
-  updateStrategy,
 }: {
   targetId: number | "root" | null;
   currentStrategy?: Strategy;
-  updateStrategy: (
-    newStrategyValues: Record<string, string | number> | null,
-  ) => void;
 }) => {
   const radioButtonMapRef = useRef<Map<string | null, HTMLInputElement>>(
     new Map(),
@@ -531,13 +500,6 @@ const StrategySelector = ({
         name={`caching-strategy-for-${
           targetId === "root" ? "root" : `database-${targetId}`
         }`}
-        onChange={optionName => {
-          updateStrategy(
-            optionName === "inherit"
-              ? null // delete strategy
-              : { type: optionName },
-          );
-        }}
         label={
           <Text lh="1rem">{t`When should cached query results be invalidated?`}</Text>
         }

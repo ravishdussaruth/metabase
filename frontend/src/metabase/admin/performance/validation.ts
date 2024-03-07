@@ -24,16 +24,34 @@ export const durationStrategyValidationSchema = Yup.object({
   unit: Yup.string().matches(unitOfTimeRegex),
 });
 
-export const strategyValidationSchema = Yup.lazy(value => {
-  const type = value?.type;
-  return isValidStrategyName(type)
-    ? Strategies[type].validateWith
-    : Yup.object().test(
-        "invalid-strategy",
-        "The object must match one of the strategy validation schemas",
-        () => false,
-      );
-});
+export const strategyValidationSchema = Yup.object().test(
+  "strategy-validation",
+  "The object must match one of the strategy validation schemas",
+  function (value) {
+    const { type } = value as unknown as { type: string }; // TODO: fix
+    if (!isValidStrategyName(type)) {
+      return this.createError({
+        message: `"${type}" is not a valid strategy name`,
+        path: "type",
+      });
+    }
+    const schema = Strategies[type].validateWith;
+    try {
+      schema.validateSync(value);
+      return true;
+    } catch (error: unknown) {
+      if (error instanceof Yup.ValidationError) {
+        return this.createError({
+          message: error.message,
+          path: error.path,
+        });
+      } else {
+        console.error("Unhandled error:", error);
+        return false;
+      }
+    }
+  },
+) as Yup.AnySchema;
 
 // TODO: These schemas are to be added in later
 
