@@ -131,7 +131,8 @@
   [{query-type :type, :as query} & {:as perms-opts}]
   (cond
     (empty? query)                   {}
-    (= (keyword query-type) :native) {:perms/create-queries :query-builder-and-native}
+    (= (keyword query-type) :native) {:perms/create-queries :query-builder-and-native
+                                      :perms/view-data :unrestricted}
     (= (keyword query-type) :query)  (mbql-required-perms query perms-opts)
     :else                            (throw (ex-info (tru "Invalid query type: {0}" query-type)
                                                      {:query query}))))
