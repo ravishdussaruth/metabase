@@ -32,6 +32,7 @@ export const ItemList = <TItem extends TypeWithModel>({
   selectedItem,
   isFolder,
   isCurrentLevel,
+  shouldShowItem,
 }: ItemListProps<TItem>) => {
   const activeItemIndex = useMemo(() => {
     if (!items) {
@@ -79,6 +80,7 @@ export const ItemList = <TItem extends TypeWithModel>({
       {items.map((item: TItem) => (
         <div key={`${item.model ?? "collection"}-${item.id}`}>
           <NavLink
+            disabled={!shouldShowItem(item)}
             rightSection={
               isFolder(item) ? <Icon name="chevronright" size={10} /> : null
             }

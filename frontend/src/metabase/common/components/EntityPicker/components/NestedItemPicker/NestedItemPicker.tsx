@@ -39,6 +39,7 @@ export function NestedItemPicker<TItem extends TypeWithModel>({
   path,
   isFolder,
   listResolver: ListResolver,
+  shouldShowItem,
 }: NestedItemPickerProps<TItem>) {
   const handleClick = (item: TItem) => {
     if (isFolder(item)) {
@@ -69,6 +70,7 @@ export function NestedItemPicker<TItem extends TypeWithModel>({
                   options={options}
                   onClick={(item: TItem) => handleClick(item)}
                   isCurrentLevel={index === path.length - 2}
+                  shouldShowItem={shouldShowItem}
                   isFolder={isFolder}
                 />
               </ErrorBoundary>

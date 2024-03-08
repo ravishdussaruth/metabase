@@ -2,10 +2,11 @@ import { useState } from "react";
 import { t } from "ttag";
 
 import CreateCollectionModal from "metabase/collections/containers/CreateCollectionModal";
+import { CollectionPickerModal, type CollectionPickerItem } from "metabase/common/components/EntityPicker";
 import ModalContent from "metabase/components/ModalContent";
 import CollectionPicker from "metabase/containers/CollectionPicker";
 import Button from "metabase/core/components/Button";
-import type { Collection, CollectionId } from "metabase-types/api";
+import type { Collection, CollectionId, CollectionItem } from "metabase-types/api";
 
 import { ButtonContainer } from "./CollectionMoveModal.styled";
 
@@ -13,7 +14,7 @@ interface CollectionMoveModalProps {
   title: string;
   onClose: () => void;
   onMove: (collection: any) => void;
-  initialCollectionId?: number | string | null;
+  initialCollectionId: CollectionId;
 }
 
 export const CollectionMoveModal = ({
@@ -22,48 +23,30 @@ export const CollectionMoveModal = ({
   onMove,
   initialCollectionId,
 }: CollectionMoveModalProps) => {
-  const [selectedCollectionId, setSelectedCollectionId] =
-    useState(initialCollectionId);
 
-  const [creatingCollection, setCreatingCollection] = useState(false);
-  const [openCollectionId, setOpenCollectionId] = useState<CollectionId>();
-
-  if (creatingCollection) {
-    return (
-      <CreateCollectionModal
-        collectionId={openCollectionId}
-        onClose={() => setCreatingCollection(false)}
-        onCreate={(collection: Collection) => {
-          onMove({ id: collection.id });
-        }}
-      />
-    );
-  }
+  const canMoveCollection = (item: CollectionPickerItem) =>
+    item.can_write &&
+    item.id !== initialCollectionId &&
+    !item?.location?.split('/').includes(initialCollectionId as string);
 
   return (
-    <ModalContent title={title} onClose={onClose}>
-      <CollectionPicker
-        initialOpenCollectionId={openCollectionId}
-        onOpenCollectionChange={setOpenCollectionId}
-        value={selectedCollectionId}
-        onChange={setSelectedCollectionId}
-      />
-      <ButtonContainer>
-        <Button light icon="add" onClick={() => setCreatingCollection(true)}>
-          {t`New collection`}
-        </Button>
-        <Button
-          primary
-          className="ml-auto"
-          disabled={
-            selectedCollectionId === undefined ||
-            selectedCollectionId === initialCollectionId
-          }
-          onClick={() => onMove({ id: selectedCollectionId })}
-        >
-          {t`Move`}
-        </Button>
-      </ButtonContainer>
-    </ModalContent>
-  );
+    <CollectionPickerModal
+      title={title}
+      value={{
+        id: initialCollectionId,
+        model: "collection"
+      }}
+      onChange={(newCollection) => onMove({ id: newCollection.id  })}
+      options={{
+        showSearch: true,
+        allowCreateNew: true,
+        hasConfirmButtons: true,
+        showRootCollection: true,
+        showPersonalCollections: true,
+        confirmButtonText: t`Move`,
+      }}
+      shouldShowItem={canMoveCollection}
+      onClose={onClose}
+    />
+  )
 };

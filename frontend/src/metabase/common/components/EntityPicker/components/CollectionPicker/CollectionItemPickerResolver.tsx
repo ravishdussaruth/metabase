@@ -15,6 +15,7 @@ export const CollectionItemPickerResolver = ({
   query,
   isFolder,
   isCurrentLevel,
+  shouldShowItem,
 }: EntityItemListProps<CollectionPickerItem> & {
   options: EntityPickerOptions;
 }) => {
@@ -26,6 +27,7 @@ export const CollectionItemPickerResolver = ({
         onClick={onClick}
         isFolder={isFolder}
         isCurrentLevel={isCurrentLevel}
+        shouldShowItem={shouldShowItem}
       />
     );
   }
@@ -37,6 +39,7 @@ export const CollectionItemPickerResolver = ({
         selectedItem={selectedItem}
         isFolder={isFolder}
         isCurrentLevel={isCurrentLevel}
+        shouldShowItem={shouldShowItem}
       />
     );
   }
@@ -48,6 +51,7 @@ export const CollectionItemPickerResolver = ({
       selectedItem={selectedItem}
       isFolder={isFolder}
       isCurrentLevel={isCurrentLevel}
+      shouldShowItem={shouldShowItem}
     />
   );
 };

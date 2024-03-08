@@ -20,6 +20,7 @@ interface CollectionPickerModalProps {
   onClose: () => void;
   options?: CollectionPickerOptions;
   value: Pick<CollectionPickerItem, "id" | "model">;
+  shouldShowItem?: (item: CollectionPickerItem) => boolean;
 }
 
 const canSelectItem = (item: CollectionPickerItem | null): boolean => {
@@ -32,7 +33,9 @@ export const CollectionPickerModal = ({
   onClose,
   value,
   options = defaultOptions,
+  shouldShowItem,
 }: CollectionPickerModalProps) => {
+  options = { ...defaultOptions, ...options };
   const [selectedItem, setSelectedItem] = useState<CollectionPickerItem | null>(
     null,
   );
@@ -89,6 +92,7 @@ export const CollectionPickerModal = ({
       element: (
         <CollectionPicker
           onItemSelect={handleItemSelect}
+          shouldShowItem={shouldShowItem}
           initialValue={value}
           options={options}
           ref={pickerRef}

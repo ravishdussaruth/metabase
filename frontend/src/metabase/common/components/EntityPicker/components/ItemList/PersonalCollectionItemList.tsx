@@ -23,6 +23,7 @@ export const PersonalCollectionsItemList = <TItem extends TypeWithModel>({
   selectedItem,
   isFolder,
   isCurrentLevel,
+  shouldshowItem,
 }: PersonalCollectionsItemListProps<TItem>) => {
   const {
     data: collections,
@@ -47,6 +48,7 @@ export const PersonalCollectionsItemList = <TItem extends TypeWithModel>({
       selectedItem={selectedItem}
       isFolder={isFolder}
       isCurrentLevel={isCurrentLevel}
+      shouldShowItem={shouldShowItem}
     />
   );
 };

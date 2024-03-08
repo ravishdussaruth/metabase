@@ -18,6 +18,7 @@ export const EntityItemList = <TItem extends TypeWithModel>({
   selectedItem,
   isFolder,
   isCurrentLevel,
+  shouldShowItem
 }: EntityItemListProps<TItem>) => {
   const { data, error, isLoading } = useSearchListQuery<TItem>({ query });
 
@@ -30,6 +31,7 @@ export const EntityItemList = <TItem extends TypeWithModel>({
       selectedItem={selectedItem}
       isFolder={isFolder}
       isCurrentLevel={isCurrentLevel}
+      shouldShowItem={shouldShowItem}
     />
   );
 };

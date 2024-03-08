@@ -43,6 +43,7 @@ export const RootItemList = ({
   options,
   isFolder,
   isCurrentLevel,
+  shouldShowItem,
 }: RootItemListProps<CollectionPickerItem>) => {
   const isAdmin = useSelector(getUserIsAdmin);
   const currentUser = useSelector(getUser);
@@ -120,6 +121,7 @@ export const RootItemList = ({
       selectedItem={selectedItem}
       isFolder={isFolder}
       isCurrentLevel={isCurrentLevel}
+      shouldShowItem={shouldShowItem}
     />
   );
 };
