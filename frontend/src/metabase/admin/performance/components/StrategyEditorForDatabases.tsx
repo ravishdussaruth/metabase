@@ -437,7 +437,14 @@ export const Editor = ({
         onSubmit={handleFormSubmit}
         enableReinitialize
       >
-        <Form>
+        <Form
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            height: "100%",
+          }}
+        >
           <Stack spacing="xl">
             <StrategySelector
               targetId={targetId}
@@ -484,8 +491,10 @@ export const Editor = ({
                   </section>
               )}
                 */}
-            <FormSubmitButton disabled={false} />
           </Stack>
+          <Box mt="2rem">
+            <FormSubmitButton label="Save changes" variant="filled" />
+          </Box>
         </Form>
       </FormProvider>
       {/*
@@ -551,13 +560,20 @@ export const DatabaseWidget = ({
             w="100%"
             p="0.75rem 1rem"
           >
-            {inheritsRootStrategy
-              ? c(
-                  "This label indicates that a database inherits its behavior from something else",
-                ).jt`Inherit:${(
-                  <Box opacity={0.6}>{getShortStrategyLabel(rootStrategy)}</Box>
-                )}`
-              : getShortStrategyLabel(strategyForDB)}
+            {inheritsRootStrategy ? (
+              c(
+                "This label indicates that a database inherits its behavior from something else",
+              ).jt`Inherit:${(
+                <Box opacity={0.6}>{getShortStrategyLabel(rootStrategy)}</Box>
+              )}`
+            ) : (
+              <>
+                {getShortStrategyLabel(strategyForDB)}
+                {strategyForDB.type === "duration" ? (
+                  <>&nbsp;({strategyForDB.duration})</>
+                ) : null}
+              </>
+            )}
           </Chip>
         </Tooltip>
       </Stack>
@@ -631,7 +647,7 @@ export const PositiveNumberInput = ({ fieldName }: { fieldName: string }) => {
       name={fieldName}
       type="number"
       min={1}
-      styles={{ input: { textAlign: "right", maxWidth: "5rem" } }}
+      styles={{ input: { textAlign: "right", maxWidth: "3.5rem" } }}
       autoComplete="off"
     />
   );
