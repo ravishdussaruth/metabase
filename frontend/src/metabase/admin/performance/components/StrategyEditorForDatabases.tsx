@@ -26,9 +26,9 @@ import { CacheConfigApi } from "metabase/services";
 import {
   Box,
   Button,
+  FixedSizeIcon,
   Flex,
   Grid,
-  Icon,
   Radio,
   Stack,
   Text,
@@ -96,7 +96,7 @@ export const StrategyEditorForDatabases = ({
 
   const [configs, setConfigs] = useState<Config[]>([]);
 
-  const [isOverridePanelVisible, setIsOverridePanelVisible] = useState(false);
+  const [shouldShowDBList, setShouldShowDBList] = useState(false);
 
   useEffect(() => {
     if (configsFromAPI) {
@@ -125,11 +125,35 @@ export const StrategyEditorForDatabases = ({
     return map;
   }, [configs, databases]);
 
+  // This may be needed if the form's live data needs to be displayed elsewhere
+  // /** The configurations displayed in the form, which may not yet be saved */
+  // const liveConfigs = useMemo(
+  //   () => {
+  //     const liveConfigs = new Map(savedConfigs);
+  //     databases?.forEach(db => {
+  //       const savedConfig = savedConfigs.get(db.id);
+  //       const liveConfig = savedConfig ?? {
+  //         model: "database",
+  //         model_id: db.id,
+  //         strategy: { type: "inherit" }
+  //       };
+  //       liveConfigs.set(db.id, liveConfig);
+  //     });
+  //     return liveConfigs;
+  //   }, [databases]
+  // );
+
   /** Id of the database currently being edited, or 'root' for the root strategy */
   const [targetId, setTargetId] = useState<number | "root" | null>(null);
 
   const rootStrategy =
     savedConfigs.get("root")?.strategy ?? defaultRootStrategy;
+
+  useEffect(() => {
+    if (targetId === "root") {
+      setShouldShowDBList(false);
+    }
+  }, [targetId]);
 
   /** The config for the currently edited database, or the root strategy */
   const targetConfig = savedConfigs.get(targetId);
@@ -284,6 +308,8 @@ export const StrategyEditorForDatabases = ({
     ) : null;
   }
 
+  const rootStrategyIconName = Strategies[rootStrategy.type].iconName;
+
   return (
     <TabWrapper role="region" aria-label="Data caching settings">
       <Text component="aside" lh="1rem" maw="32rem" mb="1.5rem">
@@ -303,17 +329,18 @@ export const StrategyEditorForDatabases = ({
             <Panel role="group" style={{ backgroundColor: color("bg-light") }}>
               <Button
                 variant="subtle"
-                p=".25rem"
+                p=".25rem .5rem"
                 fw="bold"
                 mb=".5rem"
-                rightIcon={<Icon name="chevronright" />}
+                lh="1.5rem"
+                rightIcon={<FixedSizeIcon name="chevronright" />}
                 styles={{
                   root: {
-                    backgroundColor: isOverridePanelVisible
+                    backgroundColor: shouldShowDBList
                       ? color("bg-medium")
                       : "transparent",
                     "&:hover": {
-                      backgroundColor: isOverridePanelVisible
+                      backgroundColor: shouldShowDBList
                         ? color("bg-medium")
                         : "transparent",
                     },
@@ -323,27 +350,23 @@ export const StrategyEditorForDatabases = ({
                   },
                 }}
                 onClick={() => {
-                  if (!isOverridePanelVisible) {
+                  if (!shouldShowDBList) {
                     setTargetId(null);
                   }
-                  setIsOverridePanelVisible(isVisible => !isVisible);
+                  setShouldShowDBList(isVisible => !isVisible);
                 }}
               >
-                <Flex gap="0.5rem" w="100%">
-                  <Icon name="database" />
-                  {t`Databases`}
+                <Flex gap="0.5rem" w="100%" align="center">
+                  <FixedSizeIcon name="database" />
+                  <Title color="inherit" order={5}>{t`Databases`}</Title>
                 </Flex>
               </Button>
               {/* Root strategy chip */}
               <Chip
                 leftIcon={
-                  <Icon
-                    name={
-                      Strategies[rootStrategy.type].iconName ??
-                      // TODO: Remove this default
-                      "chevronup"
-                    }
-                  />
+                  rootStrategyIconName ? (
+                    <FixedSizeIcon name={rootStrategyIconName} />
+                  ) : undefined
                 }
                 styles={{
                   inner: {
@@ -358,20 +381,30 @@ export const StrategyEditorForDatabases = ({
                     flexFlow: "row nowrap",
                   },
                 }}
-                p="0.75rem 1rem"
+                pt="0.25rem"
+                pb="0.25rem"
+                pl={rootStrategyIconName ? "0.5rem" : ".65rem"}
+                pr="0.5rem"
+                lh="1.5rem"
                 w="100%"
+                rightIcon={
+                  <FixedSizeIcon
+                    name="ellipsis"
+                    style={{ paddingRight: "2px" }}
+                  />
+                }
                 variant={targetId === "root" ? "filled" : "white"}
                 onClick={() => {
                   setTargetId("root");
-                  setIsOverridePanelVisible(false);
+                  setShouldShowDBList(false);
                 }}
               >
                 {getShortStrategyLabel(rootStrategy)}
               </Chip>
             </Panel>
-            <Panel role="group">
-              {isOverridePanelVisible &&
-                databases?.map(db => (
+            {shouldShowDBList && (
+              <Panel role="group">
+                {databases?.map(db => (
                   <DatabaseWidget
                     db={db}
                     key={db.id.toString()}
@@ -380,7 +413,8 @@ export const StrategyEditorForDatabases = ({
                     setTargetId={setTargetId}
                   />
                 ))}
-            </Panel>
+              </Panel>
+            )}
           </>
         )}
         {showEditor && (
@@ -493,7 +527,7 @@ export const Editor = ({
                 */}
           </Stack>
           <Box mt="2rem">
-            <FormSubmitButton label="Save changes" variant="filled" />
+            <FormSubmitButton label={t`Save changes`} variant="filled" />
           </Box>
         </Form>
       </FormProvider>
@@ -540,10 +574,12 @@ export const DatabaseWidget = ({
   const isBeingEdited = targetId === db.id;
   return (
     <Box w="100%" fw="bold" mb="1rem" p="1rem">
-      <Stack spacing="md">
-        <Flex gap="0.5rem">
-          <Icon name="database" />
-          {db.name}
+      <Stack spacing="sm">
+        <Flex gap="0.5rem" color="text-medium" align="center">
+          <FixedSizeIcon name="database" color="inherit" />
+          <Title color="inherit" order={5}>
+            {db.name}
+          </Title>
         </Flex>
         <Tooltip
           position="bottom"
@@ -558,15 +594,23 @@ export const DatabaseWidget = ({
             variant={isBeingEdited ? "filled" : "white"}
             ml="auto"
             w="100%"
-            p="0.75rem 1rem"
+            p="0.25rem 0.5rem"
+            styles={{
+              inner: { width: "100%", justifyContent: "space-between" },
+            }}
+            rightIcon={<FixedSizeIcon name="ellipsis" />}
           >
-            {inheritsRootStrategy
-              ? c(
-                  "This label indicates that a database inherits its behavior from something else",
-                ).jt`Inherit:${(
-                  <Box opacity={0.6}>{getShortStrategyLabel(rootStrategy)}</Box>
-                )}`
-              : getShortStrategyLabel(strategyForDB)}
+            <Flex wrap="nowrap" lh="1.5rem" gap=".5rem">
+              {inheritsRootStrategy
+                ? c(
+                    "This label indicates that a database inherits its behavior from something else",
+                  ).jt`Inherit:${(
+                    <Box opacity={0.6}>
+                      {getShortStrategyLabel(rootStrategy)}
+                    </Box>
+                  )}`
+                : getShortStrategyLabel(strategyForDB)}
+            </Flex>
           </Chip>
         </Tooltip>
       </Stack>

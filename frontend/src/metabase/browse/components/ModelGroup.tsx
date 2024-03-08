@@ -1,17 +1,17 @@
 import { useMemo } from "react";
-import { t, c, msgid } from "ttag";
+import { c, msgid, t } from "ttag";
 
 import { color } from "metabase/lib/colors";
 import * as Urls from "metabase/lib/urls";
-import { Box, Icon, Title, Button, Flex } from "metabase/ui";
+import { Box, Button, FixedSizeIcon, Flex, Icon, Title } from "metabase/ui";
 import type {
   Card,
-  SearchResult,
   CollectionEssentials,
+  SearchResult,
 } from "metabase-types/api";
 
 import { trackModelClick } from "../analytics";
-import { getCollectionName, sortModels, getIcon } from "../utils";
+import { getCollectionName, getIcon, sortModels } from "../utils";
 
 import {
   CollectionCollapse,
@@ -19,11 +19,10 @@ import {
   CollectionHeaderContainer,
   CollectionHeaderToggleContainer,
   CollectionSummary,
-  FixedSizeIcon,
+  HoverUnderlineLink,
   ModelCard,
   ModelCardLink,
   MultilineEllipsified,
-  HoverUnderlineLink,
 } from "./BrowseModels.styled";
 
 const MAX_COLLAPSED_MODELS = 6;

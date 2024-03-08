@@ -18,9 +18,8 @@ export interface UseFormSubmitButtonResult {
 export const useFormSubmitButton = ({
   isDisabled = false,
 }: UseFormSubmitButtonProps): UseFormSubmitButtonResult => {
-  const { isValid, isSubmitting, errors } = useFormikContext();
+  const { isValid, isSubmitting, errors: _errors } = useFormikContext();
 
-  console.log("errors", errors);
   const { status } = useFormContext();
   const isRecent = useIsRecent(status, STATUS_TIMEOUT);
   return {
