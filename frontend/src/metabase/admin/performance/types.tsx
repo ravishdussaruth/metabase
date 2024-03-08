@@ -60,8 +60,9 @@ export const getShortStrategyLabel = (strategy?: Strat) => {
   if (!strategy) {
     return null;
   }
+  const suffix = strategy.type === "duration" ? ` (${strategy.duration})` : "";
   const type = Strategies[strategy.type];
-  return type.shortLabel ?? type.label;
+  return `${type.shortLabel ?? type.label}${suffix}`;
 };
 
 export const isValidStrategyName = (

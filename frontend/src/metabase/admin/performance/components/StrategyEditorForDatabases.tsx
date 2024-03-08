@@ -238,7 +238,7 @@ export const StrategyEditorForDatabases = ({
 
   const showEditor = targetId !== null;
 
-  const updateStrategy = (newStrategyValues: Partial<Strat> | null) => {
+  const saveStrategy = (newStrategyValues: Partial<Strat> | null) => {
     const strategyType: StrategyType | undefined =
       newStrategyValues?.type ?? currentStrategy?.type;
     const relevantDefaults =
@@ -387,7 +387,7 @@ export const StrategyEditorForDatabases = ({
           <Editor
             currentStrategy={currentStrategy}
             targetId={targetId}
-            updateStrategy={updateStrategy}
+            saveStrategy={saveStrategy}
             defaults={defaults}
           />
         )}
@@ -399,12 +399,12 @@ export const StrategyEditorForDatabases = ({
 export const Editor = ({
   currentStrategy,
   targetId,
-  updateStrategy,
+  saveStrategy,
   defaults,
 }: {
   currentStrategy?: Strat;
   targetId: number | "root";
-  updateStrategy: (newStrategy: Partial<Strat> | null) => void;
+  saveStrategy: (newStrategy: Partial<Strat> | null) => void;
   defaults: DefaultsMap | null;
 }) => {
   const currentStrategyType = currentStrategy?.type ?? "inherit";
@@ -422,7 +422,7 @@ export const Editor = ({
   } as Strat;
 
   const handleFormSubmit = (values: Partial<Strat>) => {
-    updateStrategy(
+    saveStrategy(
       values.type === "inherit"
         ? null // Delete the strategy
         : { ...currentStrategy, ...values },
@@ -560,20 +560,13 @@ export const DatabaseWidget = ({
             w="100%"
             p="0.75rem 1rem"
           >
-            {inheritsRootStrategy ? (
-              c(
-                "This label indicates that a database inherits its behavior from something else",
-              ).jt`Inherit:${(
-                <Box opacity={0.6}>{getShortStrategyLabel(rootStrategy)}</Box>
-              )}`
-            ) : (
-              <>
-                {getShortStrategyLabel(strategyForDB)}
-                {strategyForDB.type === "duration" ? (
-                  <>&nbsp;({strategyForDB.duration})</>
-                ) : null}
-              </>
-            )}
+            {inheritsRootStrategy
+              ? c(
+                  "This label indicates that a database inherits its behavior from something else",
+                ).jt`Inherit:${(
+                  <Box opacity={0.6}>{getShortStrategyLabel(rootStrategy)}</Box>
+                )}`
+              : getShortStrategyLabel(strategyForDB)}
           </Chip>
         </Tooltip>
       </Stack>
