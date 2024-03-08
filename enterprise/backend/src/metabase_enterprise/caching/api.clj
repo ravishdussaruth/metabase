@@ -100,6 +100,7 @@
                       (t2/insert-returning-pk! :model/CacheConfig (merge criteria data)))
              (audit-caching-change! <> criteria current data))})))
 
+; TODO: We no longer need to support deleting multiple model ids in one go
 (api/defendpoint DELETE "/"
   [:as {{:keys [model model_id]} :body}]
   {model    [:enum "root" "database" "dashboard" "question"]
