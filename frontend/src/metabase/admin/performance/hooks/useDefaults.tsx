@@ -6,13 +6,15 @@ import type {
   Config,
   DoNotCacheStrategy,
   DurationStrategy,
-  TTLStrategy,
+  InheritStrategy,
+  TTLStrategy
 } from "../types";
 
 export type DefaultMappings = {
   nocache: Partial<DoNotCacheStrategy>;
   ttl: Partial<TTLStrategy>;
   duration: Partial<DurationStrategy>;
+  inherit: Partial<InheritStrategy>;
   // schedule: Partial<ScheduleStrategy>;
   // query: Partial<QueryStrategy>;
 };
@@ -29,6 +31,7 @@ export const initialStrategyDefaults: DefaultMappings = {
     unit: "hours",
   },
   nocache: {},
+  inherit: {}
   // schedule: {
   //   schedule: "* * * * *",
   // },

@@ -6,6 +6,7 @@ import {
   doNotCacheStrategyValidationSchema,
   ttlStrategyValidationSchema,
   durationStrategyValidationSchema,
+  inheritStrategyValidationSchema,
   //queryStrategyValidationSchema,
   //scheduleStrategyValidationSchema,
 } from "./validation";
@@ -16,7 +17,7 @@ type StrategyData = {
   validateWith: AnySchema;
 };
 
-export type StrategyType = "nocache" | "ttl" | "duration";
+export type StrategyType = "nocache" | "ttl" | "duration" | "inherit";
 // | "schedule"
 // | "query";
 
@@ -35,6 +36,7 @@ export const Strategies: Record<StrategyType, StrategyData> = {
     label: t`After a specific number of hours`,
     validateWith: durationStrategyValidationSchema,
   },
+  inherit: { label: t`Inherit`, validateWith: inheritStrategyValidationSchema },
   // TODO: Add these in later
   // schedule: {
   //   label: t`On a schedule`,
@@ -93,6 +95,10 @@ export interface DurationStrategy extends StrategyBase {
   unit: "hours" | "minutes" | "seconds" | "days";
 }
 
+export interface InheritStrategy extends StrategyBase {
+  type: "inherit";
+}
+
 // TODO: Add these in later
 // export interface ScheduleStrategy extends StrategyBase {
 //   type: "schedule";
@@ -107,7 +113,11 @@ export interface DurationStrategy extends StrategyBase {
 // }
 
 /** Cache invalidation strategy */
-export type Strategy = DoNotCacheStrategy | TTLStrategy | DurationStrategy;
+export type Strategy =
+  | DoNotCacheStrategy
+  | TTLStrategy
+  | DurationStrategy
+  | InheritStrategy;
 // | ScheduleStrategy
 // | QueryStrategy;
 

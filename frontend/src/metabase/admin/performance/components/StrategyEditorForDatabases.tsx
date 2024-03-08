@@ -13,7 +13,12 @@ import _ from "underscore";
 
 import { useDatabaseListQuery } from "metabase/common/hooks";
 import LoadingAndErrorWrapper from "metabase/components/LoadingAndErrorWrapper";
-import { Form, FormProvider, FormSubmitButton } from "metabase/forms";
+import {
+  Form,
+  FormProvider,
+  FormRadioGroup,
+  FormSubmitButton,
+} from "metabase/forms";
 import { color } from "metabase/lib/colors";
 import { PLUGIN_CACHING } from "metabase/plugins";
 import { CacheConfigApi } from "metabase/services";
@@ -99,21 +104,32 @@ export const StrategyEditorForDatabases = ({
 
   const dbConfigs: GetConfigByModelId = useMemo(() => {
     const map: GetConfigByModelId = new Map();
-    configs.forEach(config => {
-      map.set(config.model === "database" ? config.model_id : "root", config);
+    databases?.forEach(db => {
+      const matchingConfig = configs.find(config => config.model_id === db.id);
+      map.set(
+        db.id,
+        matchingConfig ?? {
+          model: "database",
+          model_id: db.id,
+          strategy: { type: "inherit" },
+        },
+      );
     });
-    if (!map.has("root")) {
-      map.set("root", {
-        model: "root",
-        model_id: 0,
-        strategy: defaultRootStrategy,
-      });
-    }
+    map.set("root", {
+      model: "root",
+      model_id: 0,
+      strategy:
+        configs.find(config => config.model === "root")?.strategy ??
+        defaultRootStrategy,
+    });
     return map;
   }, [configs]);
 
+  console.log("map", dbConfigs);
+
   /** Id of the database currently being edited, or 'root' for the root strategy */
   const [targetId, setTargetId] = useState<number | "root" | null>(null);
+
   const rootStrategy = dbConfigs.get("root")?.strategy;
   const targetConfig = dbConfigs.get(targetId);
   const currentStrategy = targetConfig?.strategy;
@@ -251,8 +267,11 @@ export const StrategyEditorForDatabases = ({
   const showEditor = targetId !== null;
 
   const handleFormSubmit = (values: Partial<Strategy>) => {
-    console.log('values', values);
-    updateStrategy({ ...currentStrategy, ...values });
+    updateStrategy(
+      values.type === "inherit"
+        ? null // Delete the strategy
+        : { ...currentStrategy, ...values },
+    );
   };
 
   if (errorWhenLoadingConfigs || areConfigsLoading) {
@@ -387,7 +406,7 @@ export const StrategyEditorForDatabases = ({
                   </section>
               )}
                 */}
-                <FormSubmitButton />
+                  <FormSubmitButton disabled={false} />
                 </Stack>
               </Form>
             </FormProvider>
@@ -490,24 +509,19 @@ const StrategySelector = ({
     [targetId],
   );
 
-  const options = {
-    ...Strategies,
-    inherit: { label: "Inherit" },
-  };
+  const availableStrategies =
+    targetId === "root" ? _.omit(Strategies, "inherit") : Strategies;
 
   return (
     <section>
-      <Radio.Group
-        value={currentStrategyType}
-        name={`caching-strategy-for-${
-          targetId === "root" ? "root" : `database-${targetId}`
-        }`}
+      <FormRadioGroup
         label={
           <Text lh="1rem">{t`When should cached query results be invalidated?`}</Text>
         }
+        name="type"
       >
         <Stack mt="md" spacing="md">
-          {_.map(options, (option, name) => (
+          {_.map(availableStrategies, (option, name) => (
             <Radio
               ref={(el: HTMLInputElement) => {
                 radioButtonMap.set(name, el);
@@ -518,7 +532,7 @@ const StrategySelector = ({
             />
           ))}
         </Stack>
-      </Radio.Group>
+      </FormRadioGroup>
     </section>
   );
 };

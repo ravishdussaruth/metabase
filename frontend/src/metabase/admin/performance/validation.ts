@@ -13,6 +13,7 @@ export const isValidPositiveInteger = (value: unknown) =>
   positiveInteger.isValidSync(value);
 
 export const doNotCacheStrategyValidationSchema = Yup.object({});
+export const inheritStrategyValidationSchema = Yup.object({});
 
 export const ttlStrategyValidationSchema = Yup.object({
   min_duration: positiveInteger.required(t`Required field: min_duration`),
