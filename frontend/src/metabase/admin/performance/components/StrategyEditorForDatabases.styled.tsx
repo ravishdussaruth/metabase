@@ -28,44 +28,28 @@ export const Panel = styled.div`
   }
 `;
 
-export const ConfigButton = styled(Button)<ButtonProps>`
+export const Chip = styled(Button, {
+  shouldForwardProp: prop => prop !== "configIsBeingEdited",
+})<
+  {
+    configIsBeingEdited?: boolean;
+    variant: string;
+  } & ButtonProps
+>`
   cursor: pointer;
   display: flex;
   flex-flow: row nowrap;
-  align-items: center;
   padding: 1rem;
-  overflow: unset;
   ${({ variant }) =>
     `border: 1px solid ${color(
       variant === "filled" ? "brand" : "border",
     )} ! important`};
-  & div {
-    flex: 1;
-  }
-  & span {
-    display: flex;
-    flex: 1;
-    flex-flow: row wrap;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-`;
-ConfigButton.defaultProps = { animate: false, radius: "sm" };
-
-export const Chip = styled(ConfigButton, {
-  shouldForwardProp: prop => prop !== "configIsBeingEdited",
-})<{
-  configIsBeingEdited?: boolean;
-  variant: string;
-}>`
-  ${({ variant, configIsBeingEdited }) =>
-    variant === "white" && configIsBeingEdited
-      ? `border-color: ${color("white")} ! important;`
-      : ""}
-  & span {
+  span {
     gap: 0.5rem;
   }
 `;
+
+Chip.defaultProps = { animate: false, radius: "sm" };
 
 export const TabWrapper = styled.div`
   display: grid;

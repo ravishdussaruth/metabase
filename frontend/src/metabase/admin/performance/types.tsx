@@ -1,6 +1,8 @@
 import { c, t } from "ttag";
 import type { AnySchema } from "yup";
 
+import type { IconName } from "metabase/ui";
+
 import {
   strategyValidationSchema,
   doNotCacheStrategyValidationSchema,
@@ -15,6 +17,7 @@ type StrategyData = {
   label: string;
   shortLabel?: string;
   validateWith: AnySchema;
+  iconName?: IconName;
 };
 
 export type StrategyType = "nocache" | "ttl" | "duration" | "inherit";
@@ -31,6 +34,7 @@ export const Strategies: Record<StrategyType, StrategyData> = {
     label: t`When the time-to-live (TTL) expires`,
     shortLabel: c("'TTL' is short for 'time-to-live'").t`TTL expiration`,
     validateWith: ttlStrategyValidationSchema,
+    iconName: "clock",
   },
   duration: {
     label: t`After a specific number of hours`,

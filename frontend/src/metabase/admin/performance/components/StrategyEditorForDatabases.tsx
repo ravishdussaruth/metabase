@@ -23,7 +23,18 @@ import {
 import { color } from "metabase/lib/colors";
 import { PLUGIN_CACHING } from "metabase/plugins";
 import { CacheConfigApi } from "metabase/services";
-import { Box, Flex, Grid, Icon, Radio, Stack, Text, Title } from "metabase/ui";
+import {
+  Box,
+  Button,
+  Flex,
+  Grid,
+  Icon,
+  Radio,
+  Stack,
+  Text,
+  Title,
+  Tooltip,
+} from "metabase/ui";
 import type Database from "metabase-lib/metadata/Database";
 
 import type { DefaultsMap } from "../hooks/useDefaults";
@@ -36,20 +47,10 @@ import type {
   Strat,
   StrategyType,
 } from "../types";
-import {
-  getShortStrategyLabel,
-  getStrategyLabel,
-  isValidStrategy,
-  Strategies,
-} from "../types";
+import { getShortStrategyLabel, isValidStrategy, Strategies } from "../types";
 import { strategyValidationSchema } from "../validation";
 
-import {
-  Chip,
-  ConfigButton,
-  Panel,
-  TabWrapper,
-} from "./StrategyEditorForDatabases.styled";
+import { Chip, Panel, TabWrapper } from "./StrategyEditorForDatabases.styled";
 
 const defaultRootStrategy: Strat = { type: "nocache" };
 
@@ -300,13 +301,26 @@ export const StrategyEditorForDatabases = ({
         {!canOnlyConfigureRootStrategy && (
           <>
             <Panel role="group" style={{ backgroundColor: color("bg-light") }}>
-              <ConfigButton
-                p="1rem"
-                miw="20rem"
+              <Button
+                variant="subtle"
+                p=".25rem"
                 fw="bold"
                 mb=".5rem"
+                rightIcon={<Icon name="chevronright" />}
                 styles={{
-                  label: { flexDirection: "column", alignItems: "stretch" },
+                  root: {
+                    backgroundColor: isOverridePanelVisible
+                      ? color("bg-medium")
+                      : "transparent",
+                    "&:hover": {
+                      backgroundColor: isOverridePanelVisible
+                        ? color("bg-medium")
+                        : "transparent",
+                    },
+                  },
+                  inner: {
+                    justifyContent: "space-between",
+                  },
                 }}
                 onClick={() => {
                   if (!isOverridePanelVisible) {
@@ -319,8 +333,31 @@ export const StrategyEditorForDatabases = ({
                   <Icon name="database" />
                   {t`Databases`}
                 </Flex>
-              </ConfigButton>
+              </Button>
+              {/* Root strategy chip */}
               <Chip
+                leftIcon={
+                  <Icon
+                    name={
+                      Strategies[rootStrategy.type].iconName ??
+                      // TODO: Remove this default
+                      "chevronup"
+                    }
+                  />
+                }
+                styles={{
+                  inner: {
+                    display: "flex",
+                    flexFlow: "row nowrap",
+                    justifyContent: "flex-start",
+                    flex: 1,
+                  },
+                  label: {
+                    flex: 1,
+                    display: "flex",
+                    flexFlow: "row nowrap",
+                  },
+                }}
                 p="0.75rem 1rem"
                 w="100%"
                 variant={targetId === "root" ? "filled" : "white"}
@@ -329,7 +366,7 @@ export const StrategyEditorForDatabases = ({
                   setIsOverridePanelVisible(false);
                 }}
               >
-                {getStrategyLabel(rootStrategy)}
+                {getShortStrategyLabel(rootStrategy)}
               </Chip>
             </Panel>
             <Panel role="group">
@@ -410,7 +447,7 @@ export const Editor = ({
             {selectedStrategyType === "ttl" && (
               <>
                 <section>
-                  <Title order={3}>{t`Minimum query duration`}</Title>
+                  <Title order={4}>{t`Minimum query duration`}</Title>
                   <p>
                     {t`Metabase will cache all saved questions with an average query execution time longer than this many seconds:`}
                   </p>
@@ -418,7 +455,7 @@ export const Editor = ({
                 </section>
                 <section>
                   <Title
-                    order={3}
+                    order={4}
                   >{t`Cache time-to-live (TTL) multiplier`}</Title>
                   <p>
                     {t`To determine how long each saved question's cached result should stick around, we take the query's average execution time and multiply that by whatever you input here. So if a query takes on average 2 minutes to run, and you input 10 for your multiplier, its cache entry will persist for 20 minutes.`}
@@ -429,7 +466,10 @@ export const Editor = ({
             )}
             {selectedStrategyType === "duration" && (
               <section>
-                <Title order={3}>{t`Cache result for this many hours`}</Title>
+                <Title
+                  order={4}
+                  mb=".5rem"
+                >{t`Cache result for this many hours`}</Title>
                 <PositiveNumberInput fieldName="duration" />
               </section>
             )}
@@ -490,30 +530,36 @@ export const DatabaseWidget = ({
   }
   const isBeingEdited = targetId === db.id;
   return (
-    <Box w="100%" fw="bold" mb="1rem" p="1rem" miw="20rem">
+    <Box w="100%" fw="bold" mb="1rem" p="1rem">
       <Stack spacing="md">
         <Flex gap="0.5rem">
           <Icon name="database" />
           {db.name}
         </Flex>
-        <Chip
-          configIsBeingEdited={isBeingEdited}
-          onClick={() => {
-            setTargetId(db.id);
-          }}
-          variant={isBeingEdited ? "filled" : "white"}
-          ml="auto"
-          w="100%"
-          p="0.75rem 1rem"
+        <Tooltip
+          position="bottom"
+          disabled={!inheritsRootStrategy}
+          label={t`Inheriting from Databases setting`}
         >
-          {inheritsRootStrategy
-            ? c(
-                "This label indicates that a database inherits its behavior from something else",
-              ).jt`Inherit:${(
-                <Box opacity={0.6}>{getShortStrategyLabel(rootStrategy)}</Box>
-              )}`
-            : getShortStrategyLabel(strategyForDB)}
-        </Chip>
+          <Chip
+            configIsBeingEdited={isBeingEdited}
+            onClick={() => {
+              setTargetId(db.id);
+            }}
+            variant={isBeingEdited ? "filled" : "white"}
+            ml="auto"
+            w="100%"
+            p="0.75rem 1rem"
+          >
+            {inheritsRootStrategy
+              ? c(
+                  "This label indicates that a database inherits its behavior from something else",
+                ).jt`Inherit:${(
+                  <Box opacity={0.6}>{getShortStrategyLabel(rootStrategy)}</Box>
+                )}`
+              : getShortStrategyLabel(strategyForDB)}
+          </Chip>
+        </Tooltip>
       </Stack>
     </Box>
   );
