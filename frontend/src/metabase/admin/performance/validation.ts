@@ -29,6 +29,11 @@ export const strategyValidationSchema = Yup.object().test(
   "strategy-validation",
   "The object must match one of the strategy validation schemas",
   function (value) {
+    if (!value) {
+      return this.createError({
+        message: `Strategy is falsy`,
+      });
+    }
     const { type } = value as unknown as { type: string }; // TODO: fix
     if (!isValidStrategyName(type)) {
       return this.createError({

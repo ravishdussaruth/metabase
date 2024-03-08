@@ -18,6 +18,7 @@ import {
   FormProvider,
   FormRadioGroup,
   FormSubmitButton,
+  FormTextInput,
 } from "metabase/forms";
 import { color } from "metabase/lib/colors";
 import { PLUGIN_CACHING } from "metabase/plugins";
@@ -25,13 +26,14 @@ import { CacheConfigApi } from "metabase/services";
 import { Box, Flex, Grid, Icon, Radio, Stack, Text, Title } from "metabase/ui";
 import type Database from "metabase-lib/metadata/Database";
 
+import type { DefaultsMap } from "../hooks/useDefaults";
 import { useStrategyDefaults } from "../hooks/useDefaults";
 import { useRequests } from "../hooks/useRequests";
 import type {
   Config,
   GetConfigByModelId,
   Model,
-  Strategy,
+  Strat,
   StrategyType,
 } from "../types";
 import {
@@ -42,7 +44,6 @@ import {
 } from "../types";
 import { strategyValidationSchema } from "../validation";
 
-import { PositiveNumberInput } from "./ConfigureSelectedStrategy";
 import {
   Chip,
   ConfigButton,
@@ -50,7 +51,7 @@ import {
   TabWrapper,
 } from "./StrategyEditorForDatabases.styled";
 
-const defaultRootStrategy: Strategy = { type: "nocache" };
+const defaultRootStrategy: Strat = { type: "nocache" };
 
 export const StrategyEditorForDatabases = ({
   tabsRef,
@@ -84,10 +85,10 @@ export const StrategyEditorForDatabases = ({
     if (!canOnlyConfigureRootStrategy) {
       lists.push(CacheConfigApi.list({ model: "database" }));
     }
-    const [rootConfigsFromAPI, dbConfigsFromAPI] = await Promise.all(lists);
+    const [rootConfigsFromAPI, savedConfigsFromAPI] = await Promise.all(lists);
     const configs = [
       ...(rootConfigsFromAPI?.items ?? []),
-      ...(dbConfigsFromAPI?.items ?? []),
+      ...(savedConfigsFromAPI?.items ?? []),
     ];
     return configs;
   }, []);
@@ -102,38 +103,36 @@ export const StrategyEditorForDatabases = ({
     }
   }, [configsFromAPI]);
 
-  const dbConfigs: GetConfigByModelId = useMemo(() => {
+  const savedConfigs: GetConfigByModelId = useMemo(() => {
     const map: GetConfigByModelId = new Map();
     databases?.forEach(db => {
       const matchingConfig = configs.find(config => config.model_id === db.id);
-      map.set(
-        db.id,
-        matchingConfig ?? {
-          model: "database",
-          model_id: db.id,
-          strategy: { type: "inherit" },
-        },
-      );
+      if (matchingConfig) {
+        map.set(db.id, matchingConfig);
+      }
     });
-    map.set("root", {
-      model: "root",
-      model_id: 0,
-      strategy:
-        configs.find(config => config.model === "root")?.strategy ??
-        defaultRootStrategy,
-    });
+    const savedRootStrategy = configs.find(
+      config => config.model === "root",
+    )?.strategy;
+    if (savedRootStrategy) {
+      map.set("root", {
+        model: "root",
+        model_id: 0,
+        strategy: savedRootStrategy,
+      });
+    }
     return map;
-  }, [configs]);
-
-  console.log("map", dbConfigs);
+  }, [configs, databases]);
 
   /** Id of the database currently being edited, or 'root' for the root strategy */
   const [targetId, setTargetId] = useState<number | "root" | null>(null);
 
-  const rootStrategy = dbConfigs.get("root")?.strategy;
-  const targetConfig = dbConfigs.get(targetId);
-  const currentStrategy = targetConfig?.strategy;
+  const rootStrategy =
+    savedConfigs.get("root")?.strategy ?? defaultRootStrategy;
 
+  /** The config for the currently edited database, or the root strategy */
+  const targetConfig = savedConfigs.get(targetId);
+  const currentStrategy = targetConfig?.strategy;
   const defaults = useStrategyDefaults(databases, targetConfig);
 
   const { debouncedRequest, showSuccessToast, showErrorToast } = useRequests();
@@ -145,7 +144,7 @@ export const StrategyEditorForDatabases = ({
   }, [canOnlyConfigureRootStrategy]);
 
   const setStrategy = useCallback(
-    (model: Model, model_id: number, newStrategy: Strategy | null) => {
+    (model: Model, model_id: number, newStrategy: Strat | null) => {
       const baseConfig: Pick<Config, "model" | "model_id"> = {
         model,
         model_id,
@@ -154,7 +153,7 @@ export const StrategyEditorForDatabases = ({
         config => config.model_id !== model_id,
       );
 
-      const configBeforeChange = dbConfigs.get(model_id);
+      const configBeforeChange = savedConfigs.get(model_id);
       const onSuccess = async () => {
         await showSuccessToast();
       };
@@ -195,12 +194,12 @@ export const StrategyEditorForDatabases = ({
         );
       }
     },
-    [configs, dbConfigs, debouncedRequest, showErrorToast, showSuccessToast],
+    [configs, savedConfigs, debouncedRequest, showErrorToast, showSuccessToast],
   );
 
-  const setRootStrategy = (newStrategy: Strategy) =>
+  const setRootStrategy = (newStrategy: Strat) =>
     setStrategy("root", 0, newStrategy);
-  const setDBStrategy = (databaseId: number, newStrategy: Strategy | null) =>
+  const setDBStrategy = (databaseId: number, newStrategy: Strat | null) =>
     setStrategy("database", databaseId, newStrategy);
 
   const [showLoadingSpinner, setShowLoadingSpinner] = useState(false);
@@ -236,7 +235,9 @@ export const StrategyEditorForDatabases = ({
     [],
   );
 
-  const updateStrategy = (newStrategyValues: Partial<Strategy> | null) => {
+  const showEditor = targetId !== null;
+
+  const updateStrategy = (newStrategyValues: Partial<Strat> | null) => {
     const strategyType: StrategyType | undefined =
       newStrategyValues?.type ?? currentStrategy?.type;
     const relevantDefaults =
@@ -264,16 +265,6 @@ export const StrategyEditorForDatabases = ({
     }
   };
 
-  const showEditor = targetId !== null;
-
-  const handleFormSubmit = (values: Partial<Strategy>) => {
-    updateStrategy(
-      values.type === "inherit"
-        ? null // Delete the strategy
-        : { ...currentStrategy, ...values },
-    );
-  };
-
   if (errorWhenLoadingConfigs || areConfigsLoading) {
     return showLoadingSpinner ? (
       <LoadingAndErrorWrapper
@@ -291,6 +282,7 @@ export const StrategyEditorForDatabases = ({
       />
     ) : null;
   }
+
   return (
     <TabWrapper role="region" aria-label="Data caching settings">
       <Text component="aside" lh="1rem" maw="32rem" mb="1.5rem">
@@ -346,7 +338,7 @@ export const StrategyEditorForDatabases = ({
                   <DatabaseWidget
                     db={db}
                     key={db.id.toString()}
-                    dbConfigs={dbConfigs}
+                    savedConfigs={savedConfigs}
                     targetId={targetId}
                     setTargetId={setTargetId}
                   />
@@ -355,48 +347,94 @@ export const StrategyEditorForDatabases = ({
           </>
         )}
         {showEditor && (
-          <Panel>
-            <FormProvider<Strategy>
-              initialValues={currentStrategy as Strategy}
-              validationSchema={strategyValidationSchema}
-              onSubmit={handleFormSubmit}
-              enableReinitialize
-            >
-              <Form>
-                <Stack spacing="xl">
-                  <StrategySelector
-                    targetId={targetId}
-                    currentStrategy={currentStrategy}
-                  />
-                  {currentStrategy?.type === "ttl" && (
-                    <>
-                      <section>
-                        <Title order={3}>{t`Minimum query duration`}</Title>
-                        <p>
-                          {t`Metabase will cache all saved questions with an average query execution time longer than this many seconds:`}
-                        </p>
-                        <PositiveNumberInput fieldName="min_duration" />
-                      </section>
-                      <section>
-                        <Title
-                          order={3}
-                        >{t`Cache time-to-live (TTL) multiplier`}</Title>
-                        <p>
-                          {t`To determine how long each saved question's cached result should stick around, we take the query's average execution time and multiply that by whatever you input here. So if a query takes on average 2 minutes to run, and you input 10 for your multiplier, its cache entry will persist for 20 minutes.`}
-                        </p>
-                        <PositiveNumberInput fieldName="multiplier" />
-                      </section>
-                    </>
-                  )}
-                  {currentStrategy?.type === "duration" && (
-                    <section>
-                      <Title order={3}>{t`Duration`}</Title>
-                      <p>{t`(explanation goes here)`}</p>
-                      <PositiveNumberInput fieldName="duration" />
-                    </section>
-                  )}
-                  {/*
-              {currentStrategy?.type === "schedule" && (
+          <Editor
+            currentStrategy={currentStrategy}
+            targetId={targetId}
+            updateStrategy={updateStrategy}
+            defaults={defaults}
+          />
+        )}
+      </Grid>
+    </TabWrapper>
+  );
+};
+
+export const Editor = ({
+  currentStrategy,
+  targetId,
+  updateStrategy,
+  defaults,
+}: {
+  currentStrategy?: Strat;
+  targetId: number | "root";
+  updateStrategy: (newStrategy: Partial<Strat> | null) => void;
+  defaults: DefaultsMap | null;
+}) => {
+  const currentStrategyType = currentStrategy?.type ?? "inherit";
+
+  /** The strategy displayed in the form. It might not be saved yet. */
+  const [selectedStrategyType, setSelectedStrategyType] =
+    useState<StrategyType>(currentStrategyType);
+
+  const defaultsForCurrentTargetAndStrategy =
+    defaults?.get(targetId)?.[selectedStrategyType];
+
+  const selectedStrategy = {
+    ...defaultsForCurrentTargetAndStrategy,
+    type: selectedStrategyType,
+  } as Strat;
+
+  const handleFormSubmit = (values: Partial<Strat>) => {
+    updateStrategy(
+      values.type === "inherit"
+        ? null // Delete the strategy
+        : { ...currentStrategy, ...values },
+    );
+  };
+
+  return (
+    <Panel>
+      <FormProvider<Strat>
+        initialValues={selectedStrategy}
+        validationSchema={strategyValidationSchema}
+        onSubmit={handleFormSubmit}
+        enableReinitialize
+      >
+        <Form>
+          <Stack spacing="xl">
+            <StrategySelector
+              targetId={targetId}
+              currentStrategy={selectedStrategy}
+              setSelectedStrategy={setSelectedStrategyType}
+            />
+            {selectedStrategyType === "ttl" && (
+              <>
+                <section>
+                  <Title order={3}>{t`Minimum query duration`}</Title>
+                  <p>
+                    {t`Metabase will cache all saved questions with an average query execution time longer than this many seconds:`}
+                  </p>
+                  <PositiveNumberInput fieldName="min_duration" />
+                </section>
+                <section>
+                  <Title
+                    order={3}
+                  >{t`Cache time-to-live (TTL) multiplier`}</Title>
+                  <p>
+                    {t`To determine how long each saved question's cached result should stick around, we take the query's average execution time and multiply that by whatever you input here. So if a query takes on average 2 minutes to run, and you input 10 for your multiplier, its cache entry will persist for 20 minutes.`}
+                  </p>
+                  <PositiveNumberInput fieldName="multiplier" />
+                </section>
+              </>
+            )}
+            {selectedStrategyType === "duration" && (
+              <section>
+                <Title order={3}>{t`Cache result for this many hours`}</Title>
+                <PositiveNumberInput fieldName="duration" />
+              </section>
+            )}
+            {/*
+              {selectedStrategy === "schedule" && (
                   <section>
                     <Title order={3}>{t`Schedule`}</Title>
                     <p>{t`(explanation goes here)`}</p>
@@ -406,11 +444,11 @@ export const StrategyEditorForDatabases = ({
                   </section>
               )}
                 */}
-                  <FormSubmitButton disabled={false} />
-                </Stack>
-              </Form>
-            </FormProvider>
-            {/*
+            <FormSubmitButton disabled={false} />
+          </Stack>
+        </Form>
+      </FormProvider>
+      {/*
           <StrategyConfig />
               Add later
               <section>
@@ -427,26 +465,23 @@ TODO: I'm not sure this string translates well
 <Select data={durations} />
 </section>
             */}
-          </Panel>
-        )}
-      </Grid>
-    </TabWrapper>
+    </Panel>
   );
 };
 
 export const DatabaseWidget = ({
   db,
-  dbConfigs,
+  savedConfigs,
   targetId,
   setTargetId,
 }: {
   db: Database;
   targetId: number | "root" | null;
-  dbConfigs: GetConfigByModelId;
+  savedConfigs: GetConfigByModelId;
   setTargetId: Dispatch<SetStateAction<number | "root" | null>>;
 }) => {
-  const dbConfig = dbConfigs.get(db.id);
-  const rootStrategy = dbConfigs.get("root")?.strategy;
+  const dbConfig = savedConfigs.get(db.id);
+  const rootStrategy = savedConfigs.get("root")?.strategy;
   const savedDBStrategy = dbConfig?.strategy;
   const inheritsRootStrategy = savedDBStrategy === undefined;
   const strategyForDB = savedDBStrategy ?? rootStrategy;
@@ -487,9 +522,11 @@ export const DatabaseWidget = ({
 const StrategySelector = ({
   targetId,
   currentStrategy,
+  setSelectedStrategy,
 }: {
   targetId: number | "root" | null;
-  currentStrategy?: Strategy;
+  currentStrategy?: Strat;
+  setSelectedStrategy: Dispatch<SetStateAction<StrategyType>>;
 }) => {
   const radioButtonMapRef = useRef<Map<string | null, HTMLInputElement>>(
     new Map(),
@@ -519,6 +556,9 @@ const StrategySelector = ({
           <Text lh="1rem">{t`When should cached query results be invalidated?`}</Text>
         }
         name="type"
+        onChange={(value: string) => {
+          setSelectedStrategy(value as StrategyType);
+        }}
       >
         <Stack mt="md" spacing="md">
           {_.map(availableStrategies, (option, name) => (
@@ -534,5 +574,19 @@ const StrategySelector = ({
         </Stack>
       </FormRadioGroup>
     </section>
+  );
+};
+
+export const PositiveNumberInput = ({ fieldName }: { fieldName: string }) => {
+  // NOTE: Known bug: on Firefox, if you type invalid input, the error
+  // message will be "Required field" instead of "must be a positive number".
+  return (
+    <FormTextInput
+      name={fieldName}
+      type="number"
+      min={1}
+      styles={{ input: { textAlign: "right", maxWidth: "5rem" } }}
+      autoComplete="off"
+    />
   );
 };
